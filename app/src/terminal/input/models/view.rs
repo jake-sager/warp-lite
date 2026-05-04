@@ -11,6 +11,7 @@ use warpui::{
     ViewHandle,
 };
 
+use crate::ai::api_keys::{ApiKeyManager, ApiKeyManagerEvent};
 use crate::ai::blocklist::agent_view::AgentViewController;
 use crate::ai::blocklist::block::cli_controller::{CLISubagentController, CLISubagentEvent};
 use crate::ai::blocklist::{BlocklistAIHistoryEvent, BlocklistAIHistoryModel};
@@ -32,7 +33,6 @@ use crate::ui_components::icons::Icon;
 use crate::view_components::action_button::{ActionButton, ActionButtonTheme, ButtonSize};
 use crate::view_components::alert::{Alert, AlertConfig};
 use crate::workspace::WorkspaceAction;
-use ai::api_keys::{ApiKeyManager, ApiKeyManagerEvent};
 
 struct ManageDefaultsTheme;
 

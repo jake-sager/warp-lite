@@ -19,6 +19,39 @@ use warp_core::command::ExitCode;
 
 use super::AgentInteractionMetadata;
 
+/// The types of blocks stored in SQLite for local session restoration.
+///
+/// Warp Lite keeps command block restoration, but drops the old AI block
+/// variants and associated cloud metadata.
+#[derive(Debug, Clone, PartialEq)]
+pub enum SerializedBlockListItem {
+    Command { block: Box<SerializedBlock> },
+}
+
+impl SerializedBlockListItem {
+    pub(crate) fn start_ts(&self) -> Option<DateTime<Local>> {
+        match self {
+            Self::Command { block } => block.start_ts,
+        }
+    }
+}
+
+impl From<crate::persistence::model::Block> for SerializedBlockListItem {
+    fn from(value: crate::persistence::model::Block) -> Self {
+        Self::Command {
+            block: Box::new(SerializedBlock::from(value)),
+        }
+    }
+}
+
+impl From<SerializedBlock> for SerializedBlockListItem {
+    fn from(value: SerializedBlock) -> Self {
+        Self::Command {
+            block: Box::new(value),
+        }
+    }
+}
+
 /// Serialization-stable representation of [`AgentViewVisibility`].
 ///
 /// This type decouples the persisted format from the in-app format, allowing

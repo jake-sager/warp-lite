@@ -73,9 +73,9 @@ use crate::workflows::local_workflows::LocalWorkflows;
 use crate::{experiments, workspace, GlobalResourceHandlesProvider};
 use crate::{AgentNotificationsModel, ObjectActions};
 
+use crate::ai::index::full_source_code_embedding::manager::CodebaseIndexManager;
+use crate::ai::project_context::model::ProjectContextModel;
 use crate::settings::cloud_preferences_syncer::CloudPreferencesSyncer;
-use ai::index::full_source_code_embedding::manager::CodebaseIndexManager;
-use ai::project_context::model::ProjectContextModel;
 use pane_group::{NotebookPane, PaneState, SplitPaneState, TerminalPaneId};
 use session_sharing_protocol::common::SessionId;
 use terminal::shared_session::permissions_manager::SessionPermissionsManager;

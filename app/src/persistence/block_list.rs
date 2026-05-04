@@ -7,7 +7,8 @@ use diesel::{prelude::*, result::Error, sqlite::SqliteConnection};
 
 use itertools::Itertools;
 
-use crate::ai::blocklist::{PersistedAIInput, SerializedBlockListItem};
+use crate::ai::blocklist::PersistedAIInput;
+use crate::terminal::model::block::SerializedBlockListItem;
 use crate::terminal::model::block::{SerializedAgentViewVisibility, SerializedBlock};
 use crate::{app_state::PaneUuid, persistence::schema::ai_queries};
 

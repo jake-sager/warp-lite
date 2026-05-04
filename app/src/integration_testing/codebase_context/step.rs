@@ -1,6 +1,6 @@
 use std::{path::PathBuf, time::Duration};
 
-use ai::index::full_source_code_embedding::manager::CodebaseIndexManager;
+use crate::ai::index::full_source_code_embedding::manager::CodebaseIndexManager;
 use settings::Setting;
 use warpui::{
     async_assert,

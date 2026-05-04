@@ -1321,7 +1321,7 @@ impl NotebookView {
             update_manager.create_notebook(
                 copy_client_id,
                 personal_drive,
-                None,
+                None::<crate::drive::folders::FolderId>,
                 CloudNotebookModel {
                     title: title.clone(),
                     data: content,

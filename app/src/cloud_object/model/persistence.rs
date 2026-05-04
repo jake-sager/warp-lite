@@ -1124,12 +1124,8 @@ impl CloudModel {
         user_workspaces: &UserWorkspaces,
         app: &AppContext,
     ) -> bool {
-        let user_uid = AuthStateProvider::as_ref(app).get().user_id();
-        self.objects_by_id.values().any(|object| {
-            // We can't use CloudObject::is_in_space, because that reborrows UserWorkspaces.
-            user_workspaces.owner_to_space(object.permissions().owner, app) == Space::Shared
-                && user_uid.is_some_and(|uid| object.permissions().has_direct_user_access(uid))
-        })
+        let _ = (user_workspaces, app);
+        false
     }
 
     pub fn get_folder_by_uid(&self, uid: &str) -> Option<&CloudFolder> {
@@ -1192,9 +1188,8 @@ impl CloudModel {
         &self,
         profile_id: &SyncId,
     ) -> Option<&CloudAIExecutionProfile> {
-        self.objects_by_id
-            .get(&profile_id.uid())
-            .and_then(|object| object.into())
+        let _ = profile_id;
+        None
     }
 
     pub fn get_workflow_enum_mut(&mut self, enum_id: &SyncId) -> Option<&mut CloudWorkflowEnum> {

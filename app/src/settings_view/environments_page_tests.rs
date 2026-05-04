@@ -15,7 +15,7 @@ use crate::terminal::view::init_environment::mode_selector::EnvironmentSetupMode
 use crate::test_util::settings::initialize_settings_for_tests;
 use crate::workspaces::team_tester::TeamTesterStatus;
 use crate::workspaces::user_workspaces::UserWorkspaces;
-use ai::index::full_source_code_embedding::manager::CodebaseIndexManager;
+use crate::ai::index::full_source_code_embedding::manager::CodebaseIndexManager;
 use instant::Instant;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};

@@ -20,7 +20,7 @@ use warpui::elements::{
 use warpui::ui_components::components::{UiComponent, UiComponentStyles};
 use warpui::{
     elements::{Border, Container, Flex, ParentElement},
-    AppContext, Element, Entity, SingletonEntity, TypedActionView, View, ViewContext,
+    AppContext, Element, Entity, EventContext, SingletonEntity, TypedActionView, View, ViewContext,
 };
 
 use super::render::{HORIZONTAL_TEXT_MARGIN, SSH_DOCS_URL, SUBSHELL_DOCS_URL};
@@ -247,7 +247,7 @@ impl WarpifySuccessBlock {
                 None
             },
             Some(Box::new({
-                move |code_snippet, ctx| {
+                move |code_snippet: String, ctx: &mut EventContext| {
                     ctx.dispatch_typed_action(WorkspaceAction::RunCommand(
                         code_snippet.to_string(),
                     ));
@@ -256,7 +256,7 @@ impl WarpifySuccessBlock {
                 }
             })),
             Some(Box::new({
-                move |code_snippet, ctx| {
+                move |code_snippet: String, ctx: &mut EventContext| {
                     ctx.dispatch_typed_action(WorkspaceAction::CopyTextToClipboard(code_snippet));
                 }
             })),

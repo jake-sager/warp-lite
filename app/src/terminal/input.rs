@@ -224,7 +224,7 @@ use crate::{
     AgentModeEntrypoint, ServerApiProvider,
 };
 
-use ai::skills::SkillReference;
+use crate::ai::skills::SkillReference;
 use base64::Engine as _;
 #[cfg(feature = "local_fs")]
 use diesel::SqliteConnection;
@@ -2179,7 +2179,7 @@ impl Input {
 
         let host_selector = if FeatureFlag::CloudModeInputV2.is_enabled() {
             let view = ctx.add_typed_action_view(|ctx| {
-                HostSelector::new(menu_positioning_provider.clone(), ctx)
+                HostSelector::new(menu_positioning_provider.clone(), (), ctx)
             });
             harness_selector.update(ctx, |selector, ctx| {
                 selector.set_button_theme(NakedHeaderButtonTheme, ctx);
@@ -4847,7 +4847,7 @@ impl Input {
         triggered_from: ZeroStatePromptSuggestionTriggeredFrom,
         ctx: &mut ViewContext<Self>,
     ) {
-        if !AIRequestUsageModel::as_ref(ctx).has_any_ai_remaining(ctx) {
+        if !AIRequestUsageModel::as_ref(ctx).has_any_ai_remaining() {
             return;
         }
 
@@ -12403,7 +12403,7 @@ impl Input {
 
         let has_requests_remaining = AIRequestUsageModel::as_ref(ctx).has_requests_remaining();
 
-        let has_any_ai = AIRequestUsageModel::as_ref(ctx).has_any_ai_remaining(ctx);
+        let has_any_ai = AIRequestUsageModel::as_ref(ctx).has_any_ai_remaining();
         if !has_any_ai {
             AIRequestUsageModel::handle(ctx).update(ctx, |model, ctx| {
                 model.enable_buy_credits_banner(ctx);
@@ -13598,6 +13598,7 @@ impl Input {
             .finish();
 
         let icon = match chip.attachment_type {
+            AttachmentType::Unknown => Icon::File,
             AttachmentType::Image => Icon::Image,
             AttachmentType::File => Icon::File,
         };

@@ -1,6 +1,5 @@
 use super::{
-    AgentOnboardingVersion, AskAISource, ContextMenuAction, OnboardingIntention, OnboardingVersion,
-    TerminalAction,
+    AgentOnboardingVersion, AskAISource, ContextMenuAction, OnboardingVersion, TerminalAction,
 };
 
 use crate::ai::predict::prompt_suggestions::ACCEPT_PROMPT_SUGGESTION_KEYBINDING;
@@ -13,6 +12,7 @@ use crate::terminal::input::{
 };
 use crate::terminal::shared_session::SharedSessionActionSource;
 use crate::terminal::ssh::error::{SshErrorBlockAction, SSH_ERROR_BLOCK_VISIBLE_KEY};
+use crate::terminal::view::action::OnboardingIntention;
 use crate::terminal::view::passive_suggestions::PromptSuggestionResolution;
 use crate::terminal::view::{
     LONG_RUNNING_AGENT_REQUESTED_COMMAND_CONTEXT_KEY,

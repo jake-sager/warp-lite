@@ -1,7 +1,7 @@
 mod saved_prompts;
 mod zero_state;
 
-use ai::skills::SkillProvider;
+use crate::ai::skills::SkillProvider;
 pub(crate) use saved_prompts::*;
 use warp_core::features::FeatureFlag;
 pub use zero_state::*;
@@ -265,7 +265,7 @@ impl SlashCommandDataSource {
     pub fn active_cli_agent_providers(
         &self,
         ctx: &AppContext,
-    ) -> Option<&'static [ai::skills::SkillProvider]> {
+    ) -> Option<&'static [crate::ai::skills::SkillProvider]> {
         CLIAgentSessionsModel::as_ref(ctx)
             .session(self.terminal_view_id)
             .filter(|s| matches!(s.input_state, CLIAgentInputState::Open { .. }))

@@ -1,6 +1,6 @@
 use std::ops::Range;
 
-use ai::diff_validation::DiffType;
+use crate::ai::diff_validation::DiffType;
 use warp_editor::render::element::VerticalExpansionBehavior;
 use warpui::elements::new_scrollable::ScrollableAppearance;
 use warpui::elements::ScrollbarWidth;

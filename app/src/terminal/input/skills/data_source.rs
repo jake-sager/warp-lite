@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use ai::skills::{SkillProvider, SkillReference, SkillScope};
+use crate::ai::skills::{SkillProvider, SkillReference, SkillScope};
 use fuzzy_match::{match_indices_case_insensitive, FuzzyMatchResult};
 use ordered_float::OrderedFloat;
 use warp_core::ui::icons::Icon;

@@ -74,10 +74,10 @@ impl BonusGrantNotificationModel {
             let message = if let Some(user_facing_message) = &grant.user_facing_message {
                 user_facing_message.clone()
             } else {
-                Self::format_generic_grant_message(grant)
+                Self::format_generic_grant_message(&grant)
             };
 
-            let grant_key = Self::create_grant_key(grant);
+            let grant_key = Self::create_grant_key(&grant);
 
             let in_persisted = shown_grants.contains(&grant_key);
             let in_session = self.shown_grants_session.contains(&grant_key);
@@ -104,6 +104,7 @@ impl BonusGrantNotificationModel {
 
     fn format_generic_grant_message(grant: &BonusGrant) -> String {
         let scope_text = match grant.scope {
+            BonusGrantScope::Unknown => "account",
             BonusGrantScope::User => "account",
             BonusGrantScope::Workspace(_) => "team",
         };

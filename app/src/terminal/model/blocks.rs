@@ -1,8 +1,8 @@
 mod selection;
 
 use crate::ai::agent::{conversation::AIConversationId, AIAgentActionId};
-use crate::ai::blocklist::SerializedBlockListItem;
 use crate::terminal::block_filter::BlockFilterQuery;
+use crate::terminal::model::block::SerializedBlockListItem;
 
 use crate::ai::blocklist::agent_view::{AgentViewDisplayMode, AgentViewState};
 use crate::terminal::event::AfterBlockCompletedEvent;

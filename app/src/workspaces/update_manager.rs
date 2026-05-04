@@ -485,12 +485,7 @@ impl TeamUpdateManager {
                     });
                 }
 
-                if let Some(feature_model_choices) = user_workspaces_access.feature_model_choices {
-                    LLMPreferences::handle(ctx).update(ctx, |llm_preferences, ctx| {
-                        llm_preferences
-                            .update_feature_model_choices(feature_model_choices.try_into(), ctx);
-                    });
-                }
+                if user_workspaces_access.feature_model_choices.is_some() {}
 
                 // Update sqlite
                 self.save_to_db([ModelEvent::UpsertWorkspaces { workspaces }]);

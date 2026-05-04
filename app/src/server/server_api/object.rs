@@ -740,7 +740,9 @@ impl ObjectClient for ServerApi {
         let response = self.send_graphql_request(operation, None).await?;
 
         match response.update_folder {
-            UpdateFolderResult::UpdateFolderOutput(output) => output.update.try_into(),
+            UpdateFolderResult::UpdateFolderOutput(_output) => {
+                Err(anyhow!("cloud folder updates are removed in Warp Lite"))
+            }
             UpdateFolderResult::UserFacingError(e) => {
                 Err(anyhow!(get_user_facing_error_message(e)))
             }
@@ -765,9 +767,10 @@ impl ObjectClient for ServerApi {
             request_context: get_request_context(),
         };
 
-        let operation = UpdateGenericStringObject::build(variables);
-        let response = self.send_graphql_request(operation, None).await?;
-        response.update_generic_string_object.try_into()
+        let _operation = UpdateGenericStringObject::build(variables);
+        Err(anyhow!(
+            "cloud generic string object updates are removed in Warp Lite"
+        ))
     }
 
     async fn grab_notebook_edit_access(&self, notebook_id: NotebookId) -> Result<ServerMetadata> {
@@ -1016,66 +1019,12 @@ impl ObjectClient for ServerApi {
                                     gso.serialized_model,
                                 );
                             }
-                            warp_graphql::generic_string_object::GenericStringObjectFormat::JsonAIFact => {
-                                parse_server_gso::<AIFact, JsonSerializer>(
-                                    &mut updated_generic_string_objects,
-                                    GenericStringObjectFormat::Json(JsonObjectType::AIFact),
-                                    server_id,
-                                    metadata,
-                                    permissions,
-                                    gso.serialized_model,
-                                );
-                            }
-                            warp_graphql::generic_string_object::GenericStringObjectFormat::JsonMCPServer => {
-                                parse_server_gso::<MCPServer, JsonSerializer>(
-                                    &mut updated_generic_string_objects,
-                                    GenericStringObjectFormat::Json(JsonObjectType::MCPServer),
-                                    server_id,
-                                    metadata,
-                                    permissions,
-                                    gso.serialized_model,
-                                );
-                            }
-                            warp_graphql::generic_string_object::GenericStringObjectFormat::JsonAIExecutionProfile => {
-                                parse_server_gso::<AIExecutionProfile, JsonSerializer>(
-                                    &mut updated_generic_string_objects,
-                                    GenericStringObjectFormat::Json(JsonObjectType::AIExecutionProfile),
-                                    server_id,
-                                    metadata,
-                                    permissions,
-                                    gso.serialized_model,
-                                );
-                            }
-                            warp_graphql::generic_string_object::GenericStringObjectFormat::JsonTemplatableMCPServer => {
-                                parse_server_gso::<TemplatableMCPServer, JsonSerializer>(
-                                    &mut updated_generic_string_objects,
-                                    GenericStringObjectFormat::Json(JsonObjectType::TemplatableMCPServer),
-                                    server_id,
-                                    metadata,
-                                    permissions,
-                                    gso.serialized_model,
-                                );
-                            }
-                            warp_graphql::generic_string_object::GenericStringObjectFormat::JsonCloudEnvironment => {
-                                parse_server_gso::<AmbientAgentEnvironment, JsonSerializer>(
-                                    &mut updated_generic_string_objects,
-                                    GenericStringObjectFormat::Json(JsonObjectType::CloudEnvironment),
-                                    server_id,
-                                    metadata,
-                                    permissions,
-                                    gso.serialized_model,
-                                );
-                            }
-                            warp_graphql::generic_string_object::GenericStringObjectFormat::JsonScheduledAmbientAgent => {
-                                parse_server_gso::<ScheduledAmbientAgent, JsonSerializer>(
-                                    &mut updated_generic_string_objects,
-                                    GenericStringObjectFormat::Json(JsonObjectType::ScheduledAmbientAgent),
-                                    server_id,
-                                    metadata,
-                                    permissions,
-                                    gso.serialized_model,
-                                );
-                            }
+                            warp_graphql::generic_string_object::GenericStringObjectFormat::JsonAIFact
+                            | warp_graphql::generic_string_object::GenericStringObjectFormat::JsonMCPServer
+                            | warp_graphql::generic_string_object::GenericStringObjectFormat::JsonAIExecutionProfile
+                            | warp_graphql::generic_string_object::GenericStringObjectFormat::JsonTemplatableMCPServer
+                            | warp_graphql::generic_string_object::GenericStringObjectFormat::JsonCloudEnvironment
+                            | warp_graphql::generic_string_object::GenericStringObjectFormat::JsonScheduledAmbientAgent => {}
                         }
                     }
                 }

@@ -4,11 +4,10 @@ use settings::Setting as _;
 use std::{any::Any, path::PathBuf, sync::Arc};
 use warpui::{AppContext, SingletonEntity, ViewHandle};
 
-use crate::PrivacySettings;
 use crate::{
-    ai::blocklist::{telemetry_banner::should_collect_ai_ugc_telemetry, SerializedBlockListItem},
     appearance::Appearance,
     settings::{BlockVisibilitySettings, DebugSettings, InputModeSettings},
+    terminal::model::block::SerializedBlockListItem,
 };
 
 use super::{
@@ -101,8 +100,7 @@ pub(super) fn create_terminal_model(
     let sizes = compute_block_size(initial_size, ctx);
 
     let obfuscate_secrets = get_secret_obfuscation_mode(ctx);
-    let is_ai_ugc_telemetry_enabled =
-        should_collect_ai_ugc_telemetry(ctx, PrivacySettings::as_ref(ctx).is_telemetry_enabled);
+    let is_ai_ugc_telemetry_enabled = false;
 
     TerminalModel::new(
         restored_blocks.map(|v| v.as_slice()),

@@ -1,6 +1,6 @@
 //! Inline plan menu view for selecting among multiple AI document plans.
 
-use ai::document::AIDocumentId;
+use crate::ai::document::AIDocumentId;
 use warpui::elements::ChildView;
 use warpui::{Element, Entity, ModelHandle, View, ViewContext, ViewHandle};
 

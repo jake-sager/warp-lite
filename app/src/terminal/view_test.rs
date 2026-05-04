@@ -406,8 +406,8 @@ fn set_input_mode_agent_does_not_enter_local_agent_from_root_cloud_mode_pane() {
 fn test_clear_session_flag_state() {
     use warp_terminal::shell::ShellType;
 
-    use crate::ai::blocklist::SerializedBlockListItem;
     use crate::terminal::model::block::SerializedBlock;
+    use crate::terminal::model::block::SerializedBlockListItem;
     use crate::terminal::ShellHost;
 
     App::test((), |mut app| async move {

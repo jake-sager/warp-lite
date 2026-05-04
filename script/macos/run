@@ -5,8 +5,7 @@
 # like a real signed app (custom URL schemes, user notifications, etc.).
 #
 # This script is invoked by `./script/run`, which handles cross-platform
-# setup (install_channel_config, binary name detection, feature-to-env-var
-# mapping). The following env vars are expected to be set by the caller:
+# setup. The following env vars are expected to be set by the caller:
 #   WARP_BIN_NAME  — "warp" (internal local build) or "warp-oss"
 #   WARP_CHANNEL   — "local" or "oss"
 #   FEATURES       — comma-separated cargo features (already normalized)
@@ -96,7 +95,11 @@ rm -rf "$WARP_APP_PATH"
 
 pushd app > /dev/null
 echo "Bundling app (bin: $WARP_BIN_NAME)..."
-cargo bundle --bin "$WARP_BIN_NAME" --features "$FEATURES" $PARAMS
+TERM="${TERM:-xterm-256color}"
+if [ "$TERM" = "dumb" ]; then
+  TERM="xterm-256color"
+fi
+TERM="$TERM" cargo bundle --bin "$WARP_BIN_NAME" --features "$FEATURES" $PARAMS
 echo "Successfully bundled..."
 popd > /dev/null
 

@@ -7,7 +7,8 @@ use crate::{
         ExecutionProfileEditorManager, ExecutionProfileEditorView, ExecutionProfileEditorViewEvent,
     },
     ai::execution_profiles::profiles::ClientProfileId,
-    app_state::LeafContents,
+    app_state::{LeafContents, SettingsPaneSnapshot},
+    settings_view::SettingsSection,
 };
 use warpui::{AppContext, ModelHandle, SingletonEntity, View, ViewContext, ViewHandle};
 
@@ -109,7 +110,10 @@ impl PaneContent for ExecutionProfileEditorPane {
     }
 
     fn snapshot(&self, _app: &AppContext) -> LeafContents {
-        LeafContents::ExecutionProfileEditor
+        LeafContents::Settings(SettingsPaneSnapshot::Local {
+            current_page: SettingsSection::Features,
+            search_query: None,
+        })
     }
 
     fn has_application_focus(&self, ctx: &mut ViewContext<PaneGroup>) -> bool {

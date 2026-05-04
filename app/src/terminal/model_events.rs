@@ -12,8 +12,6 @@ use async_channel::Receiver;
 use instant::Instant;
 use std::sync::Arc;
 
-use crate::remote_server::manager::RemoteServerManager;
-use warpui::SingletonEntity;
 use warpui::{Entity, ModelContext, ModelHandle};
 
 use super::event::SshLoginStatus;
@@ -26,11 +24,10 @@ use super::{
     event::BootstrappedEvent,
     model::{
         ansi,
-        session::{IsLegacySSHSession, SessionId, SessionInfo},
+        session::{SessionId, SessionInfo},
         terminal_model::{CommandType, HandlerEvent},
     },
 };
-use crate::features::FeatureFlag;
 use crate::terminal::shell::ShellType;
 use crate::{send_telemetry_from_ctx, TelemetryEvent};
 
@@ -85,31 +82,14 @@ impl ModelEventDispatcher {
                 self.sessions.update(ctx, |sessions, ctx| {
                     sessions.register_pending_session(pending_session_info.as_ref(), ctx);
                 });
-                let is_legacy_ssh = matches!(
-                    pending_session_info.is_legacy_ssh_session,
-                    IsLegacySSHSession::Yes { .. }
-                );
-                if FeatureFlag::SshRemoteServer.is_enabled() && is_legacy_ssh {
-                    ModelEvent::SshInitShell {
-                        pending_session_info,
-                    }
-                } else {
-                    ModelEvent::Handler(AnsiHandlerEvent::InitShell {
-                        pending_session_info,
-                    })
-                }
+                ModelEvent::Handler(AnsiHandlerEvent::InitShell {
+                    pending_session_info,
+                })
             }
             Event::Handler(HandlerEvent::Bootstrapped(bootstrapped_event)) => {
                 let session_id = bootstrapped_event.session_info.session_id;
                 let is_subshell = bootstrapped_event.session_info.subshell_info.is_some();
 
-                // Always initialize the session synchronously. When the
-                // `SshRemoteServer` flag is enabled, the remote-server client
-                // is wired up independently: `Sessions::new` subscribes to
-                // `RemoteServerManagerEvent::SessionConnected` and attaches the
-                // client to the session's `RemoteServerCommandExecutor` when
-                // the connection lands, so it's safe to initialize the session
-                // before the remote server finishes connecting.
                 self.complete_bootstrapped_session(bootstrapped_event, ctx);
 
                 ModelEvent::Handler(AnsiHandlerEvent::Bootstrapped {
@@ -330,16 +310,6 @@ impl ModelEventDispatcher {
             rcfiles_duration_seconds,
         } = event;
 
-        let (is_legacy_ssh, session_id, shell_type_name, shell_path) = (
-            matches!(
-                session_info.is_legacy_ssh_session,
-                IsLegacySSHSession::Yes { .. }
-            ),
-            session_info.session_id,
-            session_info.shell.shell_type().name().to_owned(),
-            session_info.shell.shell_path().clone(),
-        );
-
         self.sessions.update(ctx, |sessions, ctx| {
             sessions.initialize_bootstrapped_session(
                 *session_info,
@@ -349,25 +319,15 @@ impl ModelEventDispatcher {
                 ctx,
             );
         });
-
-        if FeatureFlag::SshRemoteServer.is_enabled() && is_legacy_ssh {
-            RemoteServerManager::handle(ctx).update(ctx, |mgr, _ctx| {
-                mgr.notify_session_bootstrapped(
-                    session_id,
-                    &shell_type_name,
-                    shell_path.as_deref(),
-                );
-            });
-        }
     }
 
-    /// Emits an event so `TerminalView` can render the remote server block.
+    /// Remote-server setup was removed for Warp Lite, so this is a no-op.
     pub fn request_remote_server_block(
         &mut self,
-        session_id: SessionId,
+        _session_id: SessionId,
         ctx: &mut ModelContext<Self>,
     ) {
-        ctx.emit(ModelEvent::RemoteServerBlockRequested { session_id });
+        let _ = ctx;
     }
 }
 
@@ -476,17 +436,6 @@ pub enum ModelEvent {
     PluggableNotification {
         title: Option<String>,
         body: String,
-    },
-    /// Emitted when an SSH session's `InitShell` is intercepted by the
-    /// `SshRemoteServer` feature flag. `RemoteServerController` subscribes to
-    /// this instead of `Handler(InitShell)` so `PtyController` never sees it.
-    SshInitShell {
-        pending_session_info: Box<SessionInfo>,
-    },
-    /// Emitted by `ModelEventDispatcher::request_remote_server_block`
-    /// when the remote-server binary is missing and the user must choose.
-    RemoteServerBlockRequested {
-        session_id: SessionId,
     },
     /// Emitted right before the remote shell for a session exits. Used to
     /// tear down per-session resources (e.g. the remote-server-proxy ssh

@@ -12,133 +12,69 @@ pub struct ChannelConfig {
     /// The name of the file to which logs should be written.
     pub logfile_name: Cow<'static, str>,
 
-    /// Configuration for talking to Warp's servers.
+    /// Local-only URL configuration. These addresses are intentionally inert.
     pub server_config: WarpServerConfig,
-    /// Configuration for Oz/ambient agents.
+    /// Local-only placeholder for legacy channel shape.
     pub oz_config: OzConfig,
-    /// Configuration for telemetry sending, or [`None`] if telemetry should be
-    /// disabled for this build.
-    pub telemetry_config: Option<TelemetryConfig>,
-    /// Configuration for autoupdate functionality.
-    pub autoupdate_config: Option<AutoupdateConfig>,
-    /// Configuration for crash reporting.
-    pub crash_reporting_config: Option<CrashReportingConfig>,
-    /// Configuration for statically-bundled MCP OAuth credentials.
-    pub mcp_static_config: Option<McpStaticConfig>,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct WarpServerConfig {
-    /// The root URL for the standard server pool.
+    /// Inert local root URL.
     pub server_root_url: Cow<'static, str>,
-    /// The URL for the RTC server, which serves real-time updates for Warp Drive objects.
+    /// Inert local websocket URL.
     pub rtc_server_url: Cow<'static, str>,
-    /// The URL for the session sharing server, or [`None`] if session sharing is not
-    /// supported.
+    /// Always [`None`] for Warp Lite.
     pub session_sharing_server_url: Option<Cow<'static, str>>,
-    /// The API key to use when making requests to Firebase Authentication endpoints.
-    pub firebase_auth_api_key: Cow<'static, str>,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct RudderStackDestination {
+    pub write_key: Cow<'static, str>,
+    pub root_url: Cow<'static, str>,
+}
+
+impl RudderStackDestination {
+    pub fn local_only() -> Self {
+        Self {
+            write_key: "".into(),
+            root_url: "http://127.0.0.1:0".into(),
+        }
+    }
 }
 
 impl WarpServerConfig {
     pub fn production() -> Self {
+        Self::local_only()
+    }
+
+    pub fn local_only() -> Self {
         Self {
-            server_root_url: "https://app.warp.dev".into(),
-            rtc_server_url: "wss://rtc.app.warp.dev/graphql/v2".into(),
-            session_sharing_server_url: Some("wss://sessions.app.warp.dev".into()),
-            firebase_auth_api_key: "AIzaSyBdy3O3S9hrdayLJxJ7mriBR4qgUaUygAs".into(),
+            server_root_url: "http://127.0.0.1:0".into(),
+            rtc_server_url: "ws://127.0.0.1:0/graphql/v2".into(),
+            session_sharing_server_url: None,
         }
     }
 }
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct OzConfig {
-    /// Root URL for the Oz (ambient agent management) dashboard.
+    /// Inert local root URL.
     pub oz_root_url: Cow<'static, str>,
 
-    /// URL to use as the audience when issuing workload identity tokens. If [`None`], falls back
-    /// to [`WarpServerConfig::server_root_url`]. This exists so the audience is not overridden
-    /// when a custom server root URL is provided (e.g. an ngrok URL for local development).
+    /// Always [`None`] for Warp Lite.
     pub workload_audience_url: Option<Cow<'static, str>>,
 }
 
 impl OzConfig {
     pub fn production() -> Self {
+        Self::local_only()
+    }
+
+    pub fn local_only() -> Self {
         Self {
-            oz_root_url: "https://oz.warp.dev".into(),
+            oz_root_url: "http://127.0.0.1:0".into(),
             workload_audience_url: None,
         }
     }
-}
-
-#[derive(Debug, Deserialize, Serialize)]
-pub struct TelemetryConfig {
-    /// The name of the file in which not-yet-sent telemetry events will be stored.
-    pub telemetry_file_name: Cow<'static, str>,
-    /// Configuration for Rudderstack, for reporting telemetry events.
-    pub rudderstack_config: Option<RudderStackConfig>,
-}
-
-#[derive(Debug, Default, Deserialize, Serialize)]
-pub struct RudderStackConfig {
-    pub write_key: Cow<'static, str>,
-    pub root_url: Cow<'static, str>,
-    pub ugc_write_key: Cow<'static, str>,
-}
-
-impl RudderStackConfig {
-    pub fn non_ugc_destination(&self) -> RudderStackDestination {
-        RudderStackDestination {
-            root_url: self.root_url.clone(),
-            write_key: self.write_key.clone(),
-        }
-    }
-
-    pub fn ugc_destination(&self) -> RudderStackDestination {
-        RudderStackDestination {
-            root_url: self.root_url.clone(),
-            write_key: self.ugc_write_key.clone(),
-        }
-    }
-}
-
-#[derive(Default)]
-pub struct RudderStackDestination {
-    pub root_url: Cow<'static, str>,
-    pub write_key: Cow<'static, str>,
-}
-
-#[derive(Debug, Deserialize, Serialize)]
-pub struct AutoupdateConfig {
-    /// The base URL for fetching autoupdate versions and updated release bundles.
-    pub releases_base_url: Cow<'static, str>,
-    /// Whether or not to display menu items relating to autoupdate.
-    pub show_autoupdate_menu_items: bool,
-}
-
-#[derive(Debug, Deserialize, Serialize)]
-pub struct CrashReportingConfig {
-    /// The URL/DSN for sending error logs and crash reports to Sentry.
-    pub sentry_url: Cow<'static, str>,
-}
-
-/// Configuration for statically-bundled MCP OAuth credentials.
-///
-/// These are credentials for OAuth providers where dynamic client registration
-/// is not supported and we instead ship pre-registered client IDs and secrets.
-#[derive(Clone, Debug, Deserialize, Serialize)]
-pub struct McpStaticConfig {
-    /// Per-provider OAuth credentials.
-    pub providers: Vec<McpOAuthProviderConfig>,
-}
-
-/// A single OAuth provider's credentials for MCP authentication.
-#[derive(Clone, Debug, Deserialize, Serialize)]
-pub struct McpOAuthProviderConfig {
-    /// The issuer URL of the OAuth provider (e.g. `https://github.com/login/oauth`).
-    pub issuer: Cow<'static, str>,
-    /// The OAuth client ID registered for this channel.
-    pub client_id: Cow<'static, str>,
-    /// The OAuth client secret registered for this channel.
-    pub client_secret: Cow<'static, str>,
 }

@@ -67,11 +67,11 @@ use std::collections::HashMap;
 use watcher::HomeDirectoryWatcher;
 
 use super::*;
-use crate::terminal::resizable_data::ResizableData;
-use ai::{
+use crate::ai::{
     index::full_source_code_embedding::manager::CodebaseIndexManager,
     project_context::model::ProjectContextModel,
 };
+use crate::terminal::resizable_data::ResizableData;
 use pathfinder_geometry::rect::RectF;
 use shared_session::permissions_manager::SessionPermissionsManager;
 use warpui::windowing::{state::ApplicationStage, WindowManager};

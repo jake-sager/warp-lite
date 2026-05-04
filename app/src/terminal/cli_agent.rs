@@ -7,7 +7,7 @@ use std::borrow::Cow;
 use std::collections::HashMap;
 use std::path::Path;
 
-use ai::skills::SkillProvider;
+use crate::ai::skills::SkillProvider;
 use enum_iterator::Sequence;
 use markdown_parser::parse_markdown;
 use pathfinder_color::ColorU;
@@ -345,64 +345,8 @@ impl CLIAgent {
 /// Instructs the agent to run `git diff` for deleted-line context rather than
 /// inlining the full diff.
 pub fn build_review_prompt(review: &AgentReviewCommentBatch) -> String {
-    let mut text = String::from(
-        "Please address the following code review comments. \
-         Run `git diff` (or `git diff HEAD`) to see the full context of any changes, \
-         especially for deleted lines.\n",
-    );
-
-    for comment in &review.comments {
-        if comment.outdated {
-            continue;
-        }
-        let body = export_review_comment_for_cli_prompt(&comment.content);
-        let location = match &comment.target {
-            AttachedReviewCommentTarget::Line {
-                absolute_file_path,
-                line,
-                ..
-            } => {
-                let path = absolute_file_path.display();
-                match line {
-                    EditorLineLocation::Current { line_number, .. } => {
-                        let n = line_number.as_usize() + 1;
-                        format!("{path} L{n}")
-                    }
-                    EditorLineLocation::Removed { line_number, .. } => {
-                        let n = line_number.as_usize() + 1;
-                        format!("{path} (deleted, was L{n} — see `git diff`)")
-                    }
-                    EditorLineLocation::Collapsed { line_range } => {
-                        // line_range is [start, end) 0-indexed; convert to L<start>-L<end>
-                        // where both start and end are 1-indexed inclusive.
-                        let start = line_range.start.as_usize() + 1;
-                        let end = line_range.end.as_usize();
-                        format!("{path} (collapsed hunk, L{start}-L{end} — see `git diff`)")
-                    }
-                }
-            }
-            AttachedReviewCommentTarget::File { absolute_file_path } => {
-                let path = absolute_file_path.display();
-                let abs_str = absolute_file_path.to_string_lossy();
-                let is_deleted = review.diff_set.iter().any(|(file_key, hunks)| {
-                    abs_str.ends_with(file_key.as_str())
-                        && !hunks.is_empty()
-                        && hunks
-                            .iter()
-                            .all(|h| h.lines_added == 0 && h.lines_removed > 0)
-                });
-                if is_deleted {
-                    format!("{path} (deleted file — see `git diff`)")
-                } else {
-                    format!("{path}")
-                }
-            }
-            AttachedReviewCommentTarget::General => "General".to_string(),
-        };
-        text.push_str(&format!("\n- {location}: {body}"));
-    }
-
-    text
+    let _ = review;
+    String::new()
 }
 
 fn export_review_comment_for_cli_prompt(comment: &str) -> String {

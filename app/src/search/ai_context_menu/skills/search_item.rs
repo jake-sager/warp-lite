@@ -1,4 +1,4 @@
-use ai::skills::SkillProvider;
+use crate::ai::skills::SkillProvider;
 use fuzzy_match::FuzzyMatchResult;
 use ordered_float::OrderedFloat;
 

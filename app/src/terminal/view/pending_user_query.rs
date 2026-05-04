@@ -174,7 +174,8 @@ impl TerminalView {
                         input.submit_queued_prompt(prompt, ctx);
                     });
                 }
-                FinishReason::Error
+                FinishReason::Unknown
+                | FinishReason::Error
                 | FinishReason::Cancelled
                 | FinishReason::CancelledDuringRequestedCommandExecution => {
                     // Conversation failed or was cancelled — reinsert the pending

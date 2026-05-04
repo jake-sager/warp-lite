@@ -1,5 +1,4 @@
 use crate::ai::ambient_agents::AmbientAgentTaskId;
-use crate::ai::blocklist::SerializedBlockListItem;
 use crate::terminal::available_shells::AvailableShell;
 use crate::terminal::block_list_element::GridType;
 use crate::terminal::event::{
@@ -8,6 +7,7 @@ use crate::terminal::event::{
 };
 use crate::terminal::event_listener::ChannelEventListener;
 use crate::terminal::model::ansi;
+use crate::terminal::model::block::SerializedBlockListItem;
 use crate::terminal::model::bootstrap::BootstrapStage;
 use crate::terminal::model::completions::{
     ShellCompletion, ShellCompletionUpdate, ShellData as CompletionsShellData,
@@ -1344,41 +1344,6 @@ impl TerminalModel {
 
     pub fn clear_write_to_pty_events_for_shared_session_tx(&mut self) {
         self.write_to_pty_events_for_shared_session_tx = None;
-    }
-
-    /// Sends an Agent ResponseEvent to viewers if this session is shared.
-    /// The participant_id should be the ID of the participant who initiated the query.
-    /// The forked_from_conversation_token is used for forked conversations to help viewers
-    /// link the new server-assigned token to an existing conversation from historical replay.
-    pub fn send_agent_response_for_shared_session(
-        &mut self,
-        response: &warp_multi_agent_api::ResponseEvent,
-        response_initiator: Option<ParticipantId>,
-        forked_from_conversation_token: Option<String>,
-    ) {
-        // We should always have a response initiator for shared sessions,
-        // but if we don't we should still send the response event to the viewers
-        // (as opposed to completely failing and skipping the send).
-        if response_initiator.is_none() {
-            report_error!(anyhow::anyhow!(
-                "No response initiator tracked for agent response event."
-            ));
-        }
-
-        if self.shared_session_status().is_sharer() {
-            if let Some(tx) = &self.ordered_terminal_events_for_shared_session_tx {
-                let encoded = encode_agent_response_event(response);
-                if let Err(e) = tx.try_send(OrderedTerminalEventType::AgentResponseEvent {
-                    response_initiator,
-                    response_event: encoded,
-                    forked_from_conversation_token,
-                }) {
-                    log::warn!("Failed to send OrderedTerminalEventType::AgentResponseEvent: {e}");
-                }
-            }
-        } else {
-            log::debug!("Not sharing this session; ignoring agent response event");
-        }
     }
 
     pub fn send_agent_conversation_replay_started_for_shared_session(&mut self) {
@@ -3641,6 +3606,18 @@ pub enum ExitReason {
     ProcessKilled,
     /// Shell could not be found/determined
     ShellNotFound,
+}
+
+impl TerminalModel {
+    pub fn send_agent_response_for_shared_session<T, U>(
+        &mut self,
+        _response: T,
+        _participant_id: U,
+        _server_conversation_token: Option<
+            session_sharing_protocol::common::ServerConversationToken,
+        >,
+    ) {
+    }
 }
 
 #[cfg(test)]

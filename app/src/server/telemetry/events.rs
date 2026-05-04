@@ -354,30 +354,6 @@ pub enum MCPServerTelemetryError {
     TransportError(String),
 }
 
-#[cfg(not(target_family = "wasm"))]
-impl From<rmcp::RmcpError> for MCPServerTelemetryError {
-    fn from(err: rmcp::RmcpError) -> Self {
-        match err {
-            rmcp::RmcpError::ClientInitialize(err) => Self::Initialization(err.to_string()),
-            rmcp::RmcpError::ServerInitialize(err) => Self::Initialization(err.to_string()),
-            rmcp::RmcpError::TransportCreation { error, .. } => {
-                Self::TransportError(error.to_string())
-            }
-            rmcp::RmcpError::Runtime(err) => Self::InternalError(err.to_string()),
-            rmcp::RmcpError::Service(err) => match err {
-                rmcp::ServiceError::McpError(_) => Self::ResponseError(err.to_string()),
-                rmcp::ServiceError::TransportSend(_) => Self::TransportError(err.to_string()),
-                rmcp::ServiceError::TransportClosed => Self::TransportError(err.to_string()),
-                rmcp::ServiceError::UnexpectedResponse => Self::ResponseError(err.to_string()),
-                rmcp::ServiceError::Cancelled { .. } => Self::InternalError(err.to_string()),
-                rmcp::ServiceError::Timeout { .. } => Self::TransportError(err.to_string()),
-                // The enum is marked as non-exhaustive, so we need a catch-all.
-                _ => Self::InternalError(err.to_string()),
-            },
-        }
-    }
-}
-
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct OpenedSharingDialogEvent {
     pub source: SharingDialogSource,
@@ -521,11 +497,8 @@ pub enum NotificationAgentVariant {
 }
 
 impl From<NotificationSourceAgent> for NotificationAgentVariant {
-    fn from(agent: NotificationSourceAgent) -> Self {
-        match agent {
-            NotificationSourceAgent::Oz => Self::Oz,
-            NotificationSourceAgent::CLI(cli_agent) => Self::CLIAgent(cli_agent.into()),
-        }
+    fn from(_agent: NotificationSourceAgent) -> Self {
+        Self::Oz
     }
 }
 
@@ -1046,44 +1019,8 @@ pub enum AIAgentInput {
 }
 
 impl From<FullAIAgentInput> for AIAgentInput {
-    fn from(input: FullAIAgentInput) -> Self {
-        match input {
-            FullAIAgentInput::UserQuery { query, .. } => Self::UserQuery { query },
-            FullAIAgentInput::AutoCodeDiffQuery { query, .. } => Self::AutoCodeDiffQuery { query },
-            FullAIAgentInput::ResumeConversation { .. } => Self::ResumeConversation,
-            FullAIAgentInput::InitProjectRules { display_query, .. } => {
-                Self::InitProjectRules { display_query }
-            }
-            FullAIAgentInput::CreateEnvironment { display_query, .. } => {
-                Self::CreateEnvironment { display_query }
-            }
-            FullAIAgentInput::TriggerPassiveSuggestion { trigger, .. } => {
-                Self::TriggerSuggestPrompt { trigger }
-            }
-            FullAIAgentInput::ActionResult { result, .. } => Self::ActionResult {
-                action_id: result.id,
-            },
-            FullAIAgentInput::CreateNewProject { query, .. } => Self::CreateNewProject { query },
-            FullAIAgentInput::CloneRepository { clone_repo_url, .. } => Self::CloneRepository {
-                url: clone_repo_url.into_url(),
-            },
-            FullAIAgentInput::CodeReview { .. } => Self::CodeReview,
-            FullAIAgentInput::FetchReviewComments { .. } => Self::FetchReviewComments,
-            FullAIAgentInput::SummarizeConversation { .. } => Self::SummarizeConversation,
-            FullAIAgentInput::InvokeSkill { skill, .. } => Self::InvokeSkill {
-                skill_name: skill.name.clone(),
-            },
-            FullAIAgentInput::StartFromAmbientRunPrompt { .. } => Self::StartFromAmbientRunPrompt,
-            FullAIAgentInput::MessagesReceivedFromAgents { messages } => {
-                Self::MessagesReceivedFromAgents {
-                    message_count: messages.len(),
-                }
-            }
-            FullAIAgentInput::EventsFromAgents { events } => Self::EventsFromAgents {
-                event_count: events.len(),
-            },
-            FullAIAgentInput::PassiveSuggestionResult { .. } => Self::PassiveSuggestionResult,
-        }
+    fn from(_input: FullAIAgentInput) -> Self {
+        Self::ResumeConversation
     }
 }
 
@@ -1136,6 +1073,7 @@ impl From<AgentViewEntryOrigin> for TelemetryAgentViewEntryOrigin {
         match origin {
             AgentViewEntryOrigin::Input {
                 was_prompt_autodetected,
+                ..
             } => Self::Input {
                 was_prompt_autodetected,
             },
@@ -1178,6 +1116,7 @@ impl From<AgentViewEntryOrigin> for TelemetryAgentViewEntryOrigin {
             AgentViewEntryOrigin::DefaultSessionMode => Self::DefaultSessionMode,
             AgentViewEntryOrigin::ChildAgent => Self::ChildAgent,
             AgentViewEntryOrigin::LinearDeepLink => Self::LinearDeepLink,
+            AgentViewEntryOrigin::Unknown => Self::Onboarding,
         }
     }
 }
@@ -2798,7 +2737,7 @@ pub enum TelemetryEvent {
     /// Emitted when the remote server connection + initialization completes.
     /// `error` is `None` on success, `Some(reason)` on failure.
     RemoteServerInitialization {
-        phase: remote_server::manager::RemoteServerInitPhase,
+        phase: crate::remote_server::manager::RemoteServerInitPhase,
         error: Option<String>,
         remote_os: Option<String>,
         remote_arch: Option<String>,
@@ -2810,8 +2749,8 @@ pub enum TelemetryEvent {
     },
     /// Emitted when a client request to the remote server fails.
     RemoteServerClientRequestError {
-        operation: remote_server::manager::RemoteServerOperation,
-        error_type: remote_server::manager::RemoteServerErrorKind,
+        operation: crate::remote_server::manager::RemoteServerOperation,
+        error_type: crate::remote_server::manager::RemoteServerErrorKind,
         remote_os: Option<String>,
         remote_arch: Option<String>,
     },

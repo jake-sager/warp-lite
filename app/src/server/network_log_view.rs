@@ -78,8 +78,6 @@ impl NetworkLogView {
 
         let editor = ctx.add_typed_action_view(|ctx| {
             let mut view = CodeEditorView::new(
-                None,
-                None,
                 CodeEditorRenderOptions::new(VerticalExpansionBehavior::FillMaxHeight),
                 ctx,
             );
@@ -129,14 +127,11 @@ impl NetworkLogView {
     ) {
         let state = InitialBufferState::plain_text(snapshot);
         view.reset(state, ctx);
-        let version = view.buffer_version(ctx);
-        view.set_pending_scroll(ScrollTrigger::new(
-            ScrollPosition::LineAndColumn(LineAndColumnArg {
-                line_num: 1,
-                column_num: Some(0),
-            }),
-            version,
-        ));
+        let _version = view.buffer_version();
+        view.set_pending_scroll(ScrollPosition::LineAndColumn(LineAndColumnArg {
+            line_num: 1,
+            column_num: Some(0),
+        }));
     }
 
     /// Renders the refresh icon button for the pane header. Clicking the

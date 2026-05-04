@@ -1,6 +1,6 @@
 use std::collections::HashSet;
 
-use ai::skills::SkillReference;
+use crate::ai::skills::SkillReference;
 use lazy_static::lazy_static;
 use warpui::elements::ChildView;
 use warpui::{AppContext, Element, ViewContext};

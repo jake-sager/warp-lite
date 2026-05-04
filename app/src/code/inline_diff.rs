@@ -2,7 +2,7 @@ use std::rc::Rc;
 
 #[cfg(not(target_family = "wasm"))]
 use crate::ai::blocklist::inline_action::code_diff_view::DiffSessionType;
-use ai::diff_validation::DiffType;
+use crate::ai::diff_validation::DiffType;
 #[cfg(not(target_family = "wasm"))]
 use warp_files::{FileModel, FileModelEvent};
 use warp_util::file::FileId;
@@ -139,11 +139,8 @@ impl InlineDiffView {
                 })
             }
             DiffSessionType::Remote(host_id) => {
-                let host_id = host_id.clone();
-                let remote_path = file_path.clone();
-                file_model.update(ctx, |file_model, _ctx| {
-                    file_model.register_remote_file(host_id, remote_path)
-                })
+                let _ = host_id;
+                FileId::new()
             }
         };
 

@@ -150,18 +150,13 @@ impl TryFrom<PaneNodeSnapshot> for PaneTemplateType {
                 | LeafContents::Code(_)
                 | LeafContents::Workflow(_)
                 | LeafContents::Settings(_)
-                | LeafContents::AIFact(_)
                 | LeafContents::CodeReview(_)
-                | LeafContents::ExecutionProfileEditor
                 | LeafContents::GetStarted
                 | LeafContents::NetworkLog
                 | LeafContents::Welcome { .. }
                 | LeafContents::AIDocument(_)
-                | LeafContents::EnvironmentManagement(_)
-                | LeafContents::AmbientAgent(_) => {
-                    // TODO: Handle AIDocument in launch config
-                    Err(())
-                }
+                | LeafContents::AIFact(_)
+                | LeafContents::EnvironmentManagement(_) => Err(()),
             },
         }
     }

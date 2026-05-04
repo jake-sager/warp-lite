@@ -870,6 +870,8 @@ impl Action {
                         active_agent_views
                             .get_terminal_view_id_for_conversation(conversation_id, ctx)
                     }
+                    Some(ConversationOrTaskId::Conversation(_))
+                    | Some(ConversationOrTaskId::Task(_)) => None,
                     None => None,
                 };
                 if terminal_view_id.is_none() {

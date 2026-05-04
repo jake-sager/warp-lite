@@ -1,4 +1,4 @@
-use ai::skills::SkillReference;
+use crate::ai::skills::SkillReference;
 use input_classifier::InputType;
 use warp_core::features::FeatureFlag;
 use warpui::{AppContext, Entity, ModelContext, ModelHandle, SingletonEntity};

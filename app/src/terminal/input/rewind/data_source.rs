@@ -2,7 +2,7 @@
 
 use std::collections::HashSet;
 
-use ai::agent::action_result::RequestFileEditsResult;
+use crate::ai::agent::action_result::RequestFileEditsResult;
 use itertools::Itertools;
 use ordered_float::OrderedFloat;
 use warpui::{AppContext, Entity, SingletonEntity};

@@ -1,4 +1,4 @@
-use ai::index::full_source_code_embedding::manager::CodebaseIndexManager;
+use crate::ai::index::full_source_code_embedding::manager::CodebaseIndexManager;
 use repo_metadata::repositories::DetectedRepositories;
 #[cfg(feature = "local_fs")]
 use repo_metadata::RepoMetadataModel;
@@ -22,7 +22,6 @@ use watcher::HomeDirectoryWatcher;
 
 use super::settings::initialize_settings_for_tests;
 use crate::ai::blocklist::BlocklistAIPermissions;
-use crate::ai::blocklist::SerializedBlockListItem;
 use crate::ai::execution_profiles::profiles::AIExecutionProfilesModel;
 use crate::ai::llms::LLMPreferences;
 use crate::ai::outline::RepoOutlines;
@@ -33,6 +32,7 @@ use crate::changelog_model::ChangelogModel;
 use crate::pricing::PricingInfoModel;
 use crate::server::telemetry::context_provider::AppTelemetryContextProvider;
 use crate::suggestions::ignored_suggestions_model::IgnoredSuggestionsModel;
+use crate::terminal::model::block::SerializedBlockListItem;
 use crate::terminal::shared_session::permissions_manager::SessionPermissionsManager;
 use crate::terminal::view::inline_banner::ByoLlmAuthBannerSessionState;
 use crate::undo_close::UndoCloseStack;

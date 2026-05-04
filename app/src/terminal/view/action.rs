@@ -3,7 +3,7 @@ use std::fmt;
 use std::ops::Range;
 use std::path::PathBuf;
 
-use ai::skills::SkillReference;
+use crate::ai::skills::SkillReference;
 use command_corrections::Correction;
 use pathfinder_geometry::vector::Vector2F;
 use session_sharing_protocol::common::Role;
@@ -54,7 +54,7 @@ use super::{
     SSHBannerAction, TerminalEditor,
 };
 
-pub use onboarding::OnboardingIntention;
+pub use crate::onboarding::OnboardingIntention;
 
 /// Version of the agent onboarding flow (non-legacy).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

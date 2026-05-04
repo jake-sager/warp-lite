@@ -34,6 +34,7 @@ impl AIFactPane {
         let window_id = ctx.window_id();
         let view =
             AIFactManager::handle(ctx).read(ctx, |manager, _ctx| manager.ai_fact_view(window_id));
+        let view = view.unwrap_or_else(|| ctx.add_typed_action_view(AIFactView::new));
         Self::from_view(view, ctx)
     }
 

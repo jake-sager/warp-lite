@@ -1,4 +1,4 @@
-use ai::skills::SkillReference;
+use crate::ai::skills::SkillReference;
 use warpui::elements::ChildView;
 use warpui::{Element, Entity, ModelHandle, View, ViewContext, ViewHandle};
 

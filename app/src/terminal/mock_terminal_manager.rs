@@ -7,8 +7,9 @@ use warpui::{AppContext, ModelHandle, SingletonEntity, ViewHandle, WindowId};
 
 use crate::ai::active_agent_views_model::ActiveAgentViewsModel;
 use crate::{
-    ai::blocklist::SerializedBlockListItem, context_chips::prompt_type::PromptType,
-    pane_group::TerminalViewResources, terminal::view::ConversationRestorationInNewPaneType,
+    context_chips::prompt_type::PromptType, pane_group::TerminalViewResources,
+    terminal::model::block::SerializedBlockListItem,
+    terminal::view::ConversationRestorationInNewPaneType,
 };
 
 use super::{

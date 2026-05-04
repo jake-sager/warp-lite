@@ -1095,7 +1095,7 @@ impl View for InputSuggestions {
 }
 
 /// Ordering of history items.
-#[derive(Eq, PartialEq, Debug, Clone, Copy)]
+#[derive(Eq, PartialEq, Debug, Clone, Copy, serde::Serialize, serde::Deserialize)]
 pub enum HistoryOrder {
     /// The item is from a different session (either live or past).
     DifferentSession,

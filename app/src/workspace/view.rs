@@ -112,6 +112,7 @@ use crate::util::openable_file_type::{resolve_file_target_with_editor_choice, Ed
 
 use crate::ai::blocklist::history_model::CloudConversationData;
 use crate::ai::blocklist::FORK_PREFIX;
+use crate::ai::index::full_source_code_embedding::manager::CodebaseIndexManager;
 #[cfg(not(target_family = "wasm"))]
 use crate::terminal::cli_agent_sessions::plugin_manager::{plugin_manager_for, PluginModalKind};
 use crate::terminal::cli_agent_sessions::{CLIAgentSessionsModel, CLIAgentSessionsModelEvent};
@@ -134,7 +135,6 @@ use crate::workspace::view::openwarp_launch_modal::{
 };
 use crate::workspace::{ForkFromExchange, ForkedConversationDestination};
 use crate::BlocklistAIHistoryModel;
-use ai::index::full_source_code_embedding::manager::CodebaseIndexManager;
 #[cfg(all(target_os = "macos", feature = "crash_reporting"))]
 use sentry::protocol::{Attachment, AttachmentType};
 use serde_json;
@@ -249,9 +249,6 @@ use crate::pane_group::{
     self, AnyPaneContent, CodeDiffPane, CodePane, Direction, NewTerminalOptions, PanesLayout,
     TabBarHoverIndex,
 };
-use crate::remote_server::manager::RemoteServerManager;
-#[cfg(feature = "local_fs")]
-use crate::remote_server::manager::RemoteServerManagerEvent;
 use crate::terminal::keys_settings::KeysSettings;
 use crate::terminal::shared_session::SharedSessionActionSource;
 
@@ -405,12 +402,13 @@ use warpui::{elements::MouseStateHandle, fonts::Properties};
 
 use crate::{autoupdate, channel::ChannelState};
 
-use crate::ai::blocklist::{BlocklistAIHistoryEvent, PendingQueryState, SerializedBlockListItem};
+use crate::ai::blocklist::{BlocklistAIHistoryEvent, PendingQueryState};
 use crate::editor::{
     EditorView, Event as EditorEvent, PropagateAndNoOpNavigationKeys, SingleLineEditorOptions,
     TextOptions,
 };
 use crate::persistence::ModelEvent;
+use crate::terminal::model::block::SerializedBlockListItem;
 
 use super::action::{
     InitContent, RestoreConversationLayout, TabContextMenuAnchor,
@@ -1427,7 +1425,7 @@ impl Workspace {
     fn build_agent_toolbar_editor_modal(
         ctx: &mut ViewContext<Self>,
     ) -> ViewHandle<AgentToolbarEditorModal> {
-        let modal = ctx.add_typed_action_view(AgentToolbarEditorModal::new);
+        let modal = ctx.add_typed_action_view(|ctx| AgentToolbarEditorModal::new(ctx));
         ctx.subscribe_to_view(&modal, |me, _, event, ctx| {
             me.handle_agent_toolbar_editor_modal_event(event, ctx);
         });
@@ -1636,7 +1634,7 @@ impl Workspace {
     }
 
     fn build_suggested_rule_modal(ctx: &mut ViewContext<Self>) -> ViewHandle<SuggestedRuleModal> {
-        let suggested_rule_modal = ctx.add_typed_action_view(SuggestedRuleModal::new);
+        let suggested_rule_modal = ctx.add_typed_action_view(|ctx| SuggestedRuleModal::new(ctx));
         ctx.subscribe_to_view(&suggested_rule_modal, |me, _, event, ctx| {
             me.handle_suggested_rule_modal_event(event, ctx);
         });
@@ -2721,61 +2719,14 @@ impl Workspace {
             me.handle_right_panel_event(event.clone(), ctx);
         });
 
-        // Get persisted filters from window snapshot if restoring.
-        let agent_management_filters = match workspace_setting {
-            NewWorkspaceSource::Restored {
-                ref window_snapshot,
-                ..
-            } => window_snapshot.agent_management_filters.clone(),
-            _ => None,
-        };
-        let agent_management_view = ctx
-            .add_typed_action_view(|ctx| AgentManagementView::new(agent_management_filters, ctx));
+        let agent_management_view =
+            ctx.add_typed_action_view(|ctx| AgentManagementView::new(None::<()>, ctx));
         ctx.subscribe_to_view(&agent_management_view, |me, _, event, ctx| {
             me.handle_agent_management_view_event(event, ctx);
         });
 
-        let notification_mailbox_view = if FeatureFlag::HOANotifications.is_enabled() {
-            let view = ctx.add_typed_action_view(NotificationMailboxView::new);
-            ctx.subscribe_to_view(&view, move |me, _, event, ctx| match event {
-                NotificationMailboxViewEvent::NavigateToTerminal {
-                    terminal_view_id, ..
-                } => {
-                    me.current_workspace_state.is_notification_mailbox_open = false;
-                    me.tab_bar_pinned_by_popup = false;
-                    me.sync_window_button_visibility(ctx);
-                    if let Some(stack) = &me.notification_toast_stack {
-                        stack.update(ctx, |stack, ctx| stack.set_mailbox_open(false, ctx));
-                    }
-                    me.handle_action(
-                        &WorkspaceAction::FocusTerminalViewInWorkspace {
-                            terminal_view_id: *terminal_view_id,
-                        },
-                        ctx,
-                    );
-                    ctx.notify();
-                }
-                NotificationMailboxViewEvent::Dismissed => {
-                    me.current_workspace_state.is_notification_mailbox_open = false;
-                    me.tab_bar_pinned_by_popup = false;
-                    me.sync_window_button_visibility(ctx);
-                    if let Some(stack) = &me.notification_toast_stack {
-                        stack.update(ctx, |stack, ctx| stack.set_mailbox_open(false, ctx));
-                    }
-                    me.focus_active_tab(ctx);
-                    ctx.notify();
-                }
-            });
-            Some(view)
-        } else {
-            None
-        };
-
-        let notification_toast_stack = if FeatureFlag::HOANotifications.is_enabled() {
-            Some(ctx.add_typed_action_view(AgentNotificationToastStack::new))
-        } else {
-            None
-        };
+        let notification_mailbox_view = None;
+        let notification_toast_stack = None;
 
         let ai_assistant_panel =
             Self::build_ai_assistant_panel_view(ctx, server_api.clone(), ai_client.clone());
@@ -2798,30 +2749,9 @@ impl Workspace {
         });
 
         ctx.subscribe_to_model(
-            &AgentNotificationsModel::handle(ctx),
-            Self::handle_agent_management_event,
-        );
-
-        ctx.subscribe_to_model(
             &SessionSettings::handle(ctx),
             Self::handle_session_settings_event,
         );
-
-        // When a remote server session finishes its initialize handshake, re-run
-        // update_active_session so navigate_to_directory fires now that the
-        // client is connected (it may have been skipped on the initial pwd change
-        // because the handshake was still in progress).
-        #[cfg(feature = "local_fs")]
-        if FeatureFlag::SshRemoteServer.is_enabled() {
-            ctx.subscribe_to_model(
-                &RemoteServerManager::handle(ctx),
-                |me, _handle, event, ctx| {
-                    if matches!(event, RemoteServerManagerEvent::SessionConnected { .. }) {
-                        me.update_active_session(ctx);
-                    }
-                },
-            );
-        }
 
         ctx.subscribe_to_model(&WindowSettings::handle(ctx), |me, _handle, event, ctx| {
             me.handle_window_settings_changed_event(event, ctx);
@@ -9395,9 +9325,8 @@ impl Workspace {
                 self.view_in_and_focus_warp_drive(*id, ctx);
             }
             WorkflowModalEvent::AiAssistUpgradeError(team_uid, user_id) => {
-                let upgrade_link = team_uid
-                    .map(UserWorkspaces::upgrade_link_for_team)
-                    .unwrap_or_else(|| UserWorkspaces::upgrade_link(*user_id));
+                let _ = (team_uid, user_id);
+                let upgrade_link = String::new();
 
                 self.toast_stack.update(ctx, |view, ctx| {
                     let new_toast =
@@ -9822,24 +9751,10 @@ impl Workspace {
                 .size()
         });
 
-        let warp_ai_width = modal_sizes.map(|ms| {
-            ms.warp_ai_width
-                .lock()
-                .expect("should be able to lock warp_ai resizable state handle")
-                .size()
-        });
-
         let voltron_width = modal_sizes.map(|ms| {
             ms.voltron_width
                 .lock()
                 .expect("should be able to lock voltron resizable state handle")
-                .size()
-        });
-
-        let warp_drive_index_width = modal_sizes.map(|ms| {
-            ms.warp_drive_index_width
-                .lock()
-                .expect("should be able to lock warp drive resizable state handle")
                 .size()
         });
 
@@ -9857,11 +9772,6 @@ impl Workspace {
                 .unwrap_or(DEFAULT_RIGHT_PANEL_WIDTH)
         });
 
-        let agent_management_filters = Some(
-            self.agent_management_view
-                .read(app, |view, _| view.get_filters()),
-        );
-
         WindowSnapshot {
             tabs,
             active_tab_index,
@@ -9869,14 +9779,11 @@ impl Workspace {
             fullscreen_state: window_fullscreen_state,
             quake_mode,
             universal_search_width,
-            warp_ai_width,
             voltron_width,
-            warp_drive_index_width,
             left_panel_open: self.left_panel_open,
             vertical_tabs_panel_open: self.vertical_tabs_panel_open,
             left_panel_width,
             right_panel_width,
-            agent_management_filters,
         }
     }
 
@@ -11709,7 +11616,7 @@ impl Workspace {
                         controller.send_user_query_in_conversation_no_lrc_subagent(
                             prompt,
                             forked_conversation_id,
-                            None,
+                            None::<()>,
                             ctx,
                         );
                     });
@@ -13876,7 +13783,7 @@ impl Workspace {
                         if let Some(initial_content) = initial_content {
                             drive_view.create_workflow_with_content(
                                 Space::Personal,
-                                None,
+                                None::<()>,
                                 initial_content.clone(),
                                 true, // is_for_agent_mode
                                 ctx,
@@ -14020,7 +13927,11 @@ impl Workspace {
                     return;
                 };
                 code_review_view.update(ctx, |code_review, ctx| {
-                    code_review.navigate_to_imported_comment(comment.id, diff_mode.clone(), ctx);
+                    code_review.navigate_to_imported_comment(
+                        comment.id.clone(),
+                        diff_mode.clone(),
+                        ctx,
+                    );
                 });
             }
             pane_group::Event::ImportAllCodeReviewComments {
@@ -14324,25 +14235,7 @@ impl Workspace {
             let is_remote = matches!(is_local, Some(false));
             let is_unsupported_session = is_wsl_session;
 
-            // Check whether this remote session has an active remote server
-            // connection (or is in the process of connecting). This is only
-            // true for Auto SSH Warpification (mode 1) sessions where
-            // `connect_session` was called at `InitShell` time.
-            let has_remote_server = is_remote
-                && FeatureFlag::SshRemoteServer.is_enabled()
-                && session_id
-                    .is_some_and(|sid| RemoteServerManager::as_ref(ctx).session(sid).is_some());
-
-            // When the session has a remote server, tell it about the current
-            // directory so it can start indexing and push repo metadata back.
-            #[cfg(feature = "local_fs")]
-            if has_remote_server {
-                if let (Some(sid), Some(cwd)) = (session_id, pwd) {
-                    RemoteServerManager::handle(ctx).update(ctx, |mgr, ctx| {
-                        mgr.navigate_to_directory(sid, cwd, ctx);
-                    });
-                }
-            }
+            let has_remote_server = false;
 
             let enablement = CodingPanelEnablementState::from_session_env(
                 file_tree_and_global_search_are_enabled,
@@ -16126,7 +16019,7 @@ impl Workspace {
             return false;
         }
 
-        if AIRequestUsageModel::as_ref(ctx).has_any_ai_remaining(ctx) {
+        if AIRequestUsageModel::as_ref(ctx).has_any_ai_remaining() {
             return false;
         }
 
@@ -19650,7 +19543,7 @@ impl TypedActionView for Workspace {
         if self.auth_state.is_anonymous_or_logged_out() && action.blocked_for_anonymous_user() {
             AuthManager::handle(ctx).update(ctx, |auth_manager, ctx| {
                 auth_manager.attempt_login_gated_feature(
-                    action.into(),
+                    action,
                     AuthViewVariant::RequireLoginCloseable,
                     ctx,
                 )

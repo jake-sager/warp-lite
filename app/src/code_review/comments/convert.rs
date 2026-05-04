@@ -1,4 +1,4 @@
-use ai::agent::action::InsertReviewComment;
+use crate::ai::agent::action::InsertReviewComment;
 use chrono::{DateTime, Local};
 use std::path::PathBuf;
 

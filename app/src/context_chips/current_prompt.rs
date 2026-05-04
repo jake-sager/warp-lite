@@ -1470,6 +1470,7 @@ impl CurrentPrompt {
                             );
                         }
                     }
+                    GitRepoStatusEvent::Updated => {}
                 });
             }
         }

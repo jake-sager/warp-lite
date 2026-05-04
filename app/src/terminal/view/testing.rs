@@ -10,7 +10,7 @@ cfg_if::cfg_if! {
         use warpui::{ViewContext};
 
         use crate::{
-            ai::blocklist::SerializedBlockListItem, pane_group::TerminalViewResources,
+            terminal::model::block::SerializedBlockListItem, pane_group::TerminalViewResources,
             resource_center::TipsCompleted,
         };
         use crate::terminal::model::session::Sessions;

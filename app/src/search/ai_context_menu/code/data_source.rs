@@ -1,6 +1,7 @@
 #![cfg_attr(not(feature = "local_fs"), allow(dead_code))]
 #[cfg(not(target_family = "wasm"))]
 use super::search_item::CodeSearchItem;
+use crate::ai::index::Symbol;
 #[cfg(not(target_family = "wasm"))]
 use crate::search::ai_context_menu::mixer::AIContextMenuSearchableAction;
 #[cfg(not(target_family = "wasm"))]
@@ -11,7 +12,6 @@ use crate::search::files::model::FileSearchModel;
 use crate::search::mixer::{
     AsyncDataSource, BoxFuture, DataSourceRunError, DataSourceRunErrorWrapper,
 };
-use ai::index::Symbol;
 use fuzzy_match::FuzzyMatchResult;
 #[cfg(not(target_family = "wasm"))]
 use instant::Instant;
@@ -89,6 +89,7 @@ impl CodeSymbolCache {
                 me.symbol_cache.get_mut().remove(repo_path);
                 ctx.emit(());
             }
+            RepoOutlinesEvent::Changed => {}
         });
 
         cache

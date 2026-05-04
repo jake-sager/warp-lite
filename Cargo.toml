@@ -402,14 +402,6 @@ split-debuginfo = "unpacked"
 # Minimize the runtime overhead of CPU profiling at the cost of a small
 # increase in compile time for this crate.
 backtrace.opt-level = 3
-# Minimize the runtime overhead of CPU profiling at the cost of a small
-# increase in compile time for this crate.
-pprof.opt-level = 3
-# Ensure jemalloc is optimized for performance.
-tikv-jemallocator.opt-level = 3
-tikv-jemalloc-sys.opt-level = 3
-jemalloc_pprof.opt-level = 3
-pprof_util.opt-level = 3
 # Vastly improve runtime performance of some font and text layout logic
 # at the cost of a small increase in compile time for this crate.
 ttf-parser.opt-level = 3
@@ -500,9 +492,6 @@ yaml-rust = { git = "https://github.com/warpdotdev/yaml-rust.git", rev = "516847
 tink-core = { git = "https://github.com/warpdotdev/tink-rust", branch = "warpdotdev/main" }
 tink-proto = { git = "https://github.com/warpdotdev/tink-rust", branch = "warpdotdev/main" }
 tink-hybrid = { git = "https://github.com/warpdotdev/tink-rust", branch = "warpdotdev/main" }
-
-tikv-jemallocator = { git = "https://github.com/warpdotdev/jemallocator.git", rev = "2ee30bfdf7059223b54810e4ea6c666f0a379e0b" }
-tikv-jemalloc-sys = { git = "https://github.com/warpdotdev/jemallocator.git", rev = "2ee30bfdf7059223b54810e4ea6c666f0a379e0b" }
 
 [patch."https://github.com/warpdotdev/warp-proto-apis.git"]
 # Uncomment for local development of warp-proto-apis

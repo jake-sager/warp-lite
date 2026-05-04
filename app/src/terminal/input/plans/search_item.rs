@@ -1,6 +1,6 @@
 //! SearchItem implementation for plan menu items.
 
-use ai::document::AIDocumentId;
+use crate::ai::document::AIDocumentId;
 use fuzzy_match::FuzzyMatchResult;
 use ordered_float::OrderedFloat;
 use warp_core::ui::theme::Fill;

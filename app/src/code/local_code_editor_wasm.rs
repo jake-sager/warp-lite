@@ -12,7 +12,7 @@ use warpui::{
     ViewHandle, WindowId,
 };
 
-use ai::diff_validation::DiffType;
+use crate::ai::diff_validation::DiffType;
 
 use super::editor::view::CodeEditorView;
 use super::ImmediateSaveError;

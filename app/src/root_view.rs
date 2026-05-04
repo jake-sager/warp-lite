@@ -1,5 +1,4 @@
 use crate::ai::agent::api::ServerConversationToken;
-use crate::ai::blocklist::SerializedBlockListItem;
 use crate::appearance::Appearance;
 use crate::auth::auth_manager::{AuthManager, AuthManagerEvent};
 use crate::auth::auth_override_warning_modal::AuthOverrideWarningModalVariant;
@@ -20,15 +19,16 @@ use crate::interval_timer::IntervalTimer;
 use crate::launch_configs::launch_config;
 use crate::linear::LinearIssueWork;
 use crate::notebooks::manager::NotebookSource;
+use crate::onboarding::{
+    AgentOnboardingEvent, AgentOnboardingView, OnboardingIntention, SelectedSettings,
+};
 use crate::settings::apply_onboarding_settings;
 use crate::settings::cloud_preferences_syncer::{
     CloudPreferencesSyncer, CloudPreferencesSyncerEvent,
 };
 use crate::settings::AISettings;
+use crate::terminal::model::block::SerializedBlockListItem;
 use crate::workspace::tab_settings::TabSettings;
-use onboarding::{
-    AgentOnboardingEvent, AgentOnboardingView, OnboardingIntention, SelectedSettings,
-};
 
 use crate::persistence::ModelEvent;
 use crate::report_if_error;
@@ -1725,8 +1725,6 @@ impl RootView {
     ) -> Self {
         let server_api_provider = ServerApiProvider::as_ref(ctx);
         let server_api = server_api_provider.get();
-        let auth_state = AuthStateProvider::as_ref(ctx).get().clone();
-
         ctx.subscribe_to_model(&AuthManager::handle(ctx), |me, _, event, ctx| {
             me.handle_auth_manager_event(event, ctx);
         });
@@ -1753,43 +1751,8 @@ impl RootView {
             workspace_setting,
         };
 
-        let auth_onboarding_state = if auth_state.is_logged_in() {
-            AuthOnboardingState::Terminal(workspace_args.create_workspace(ctx))
-        } else {
-            cfg_if! {
-                if #[cfg(target_family = "wasm")] {
-                    AuthOnboardingState::WebImport(AuthOnboardingTarget::Workspace(workspace_args.into()))
-                } else {
-                    // When OpenWarpNewSettingsModes is enabled, show onboarding before login for
-                    // users who haven't completed it yet (tracked via a local UserPreferences key).
-                    let has_completed_local_onboarding = FeatureFlag::OpenWarpNewSettingsModes.is_enabled()
-                        && has_completed_local_onboarding(ctx);
-                    let should_show_pre_login_onboarding = FeatureFlag::OpenWarpNewSettingsModes.is_enabled()
-                        && FeatureFlag::AgentOnboarding.is_enabled()
-                        && !has_completed_local_onboarding;
-                    if FeatureFlag::ForceLogin.is_enabled() {
-                        // ForceLogin is true for Preview
-                        AuthOnboardingState::Auth(workspace_args.into())
-                    } else if should_show_pre_login_onboarding {
-                        let workspace_args_box: Box<WorkspaceArgs> = workspace_args.into();
-                        let onboarding_view = Self::create_agent_onboarding_view(ctx);
-                        onboarding_view.update(ctx, |view, ctx| {
-                            view.start_onboarding(ctx);
-                        });
-                        AuthOnboardingState::Onboarding {
-                            onboarding_view,
-                            target: AuthOnboardingTarget::Workspace(workspace_args_box),
-                        }
-                    } else if FeatureFlag::SkipFirebaseAnonymousUser.is_enabled() {
-                        // When SkipFirebaseAnonymousUser is enabled, skip the login screen
-                        // entirely and go directly into the workspace.
-                        AuthOnboardingState::Terminal(workspace_args.create_workspace(ctx))
-                    } else {
-                        AuthOnboardingState::Auth(workspace_args.into())
-                    }
-                }
-            }
-        };
+        let auth_onboarding_state =
+            AuthOnboardingState::Terminal(workspace_args.create_workspace(ctx));
 
         let needs_sso_link_view = ctx.add_typed_action_view(|_| NeedsSsoLinkView::new());
 
@@ -2000,7 +1963,7 @@ impl RootView {
             let (mut models, default_model_id) =
                 build_onboarding_models(LLMPreferences::as_ref(ctx));
             let default_model_id =
-                apply_free_tier_default_model_override(&mut models, default_model_id, ctx);
+                apply_free_tier_default_model_override(&mut models, default_model_id, &mut *ctx);
 
             let workspace_enforces_autonomy = UserWorkspaces::as_ref(ctx)
                 .ai_autonomy_settings()
@@ -2008,7 +1971,7 @@ impl RootView {
 
             let agent_price_cents = Self::build_plan_yearly_price_cents(ctx);
 
-            let auth_state = current_onboarding_auth_state(ctx);
+            let auth_state = current_onboarding_auth_state(&mut *ctx);
 
             AgentOnboardingView::new(
                 themes.clone(),
@@ -2045,8 +2008,11 @@ impl RootView {
                 LLMPreferencesEvent::UpdatedAvailableLLMs => {
                     let (mut models, default_model_id) =
                         build_onboarding_models(llm_preferences.as_ref(ctx));
-                    let default_model_id =
-                        apply_free_tier_default_model_override(&mut models, default_model_id, ctx);
+                    let default_model_id = apply_free_tier_default_model_override(
+                        &mut models,
+                        default_model_id,
+                        &mut *ctx,
+                    );
                     onboarding_view_clone.update(ctx, |onboarding_view, ctx| {
                         onboarding_view.set_onboarding_models(models, default_model_id, ctx);
                     })
@@ -2094,7 +2060,7 @@ impl RootView {
                     }
                     _ => {}
                 }
-                let auth_state = current_onboarding_auth_state(ctx);
+                let auth_state = current_onboarding_auth_state(&mut *ctx);
                 onboarding_view_for_workspaces.update(ctx, |onboarding_view, ctx| {
                     onboarding_view.set_auth_state(auth_state, ctx);
                 });
@@ -2109,7 +2075,7 @@ impl RootView {
                     event,
                     AuthManagerEvent::AuthComplete | AuthManagerEvent::SkippedLogin
                 ) {
-                    let auth_state = current_onboarding_auth_state(ctx);
+                    let auth_state = current_onboarding_auth_state(&mut *ctx);
                     onboarding_view_for_auth.update(ctx, |onboarding_view, ctx| {
                         onboarding_view.set_auth_state(auth_state, ctx);
                     });
@@ -2492,6 +2458,7 @@ impl RootView {
                     drop(manager.refresh_workspace_metadata(ctx));
                 });
             }
+            AgentOnboardingEvent::Completed => {}
         }
     }
 

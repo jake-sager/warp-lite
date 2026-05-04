@@ -1,103 +1,263 @@
-#[cfg(not(target_family = "wasm"))]
-use crate::server::server_api::{ServerApiEvent, ServerApiProvider};
-#[cfg(not(target_family = "wasm"))]
-use remote_server::manager::RemoteServerManager;
-#[cfg(not(target_family = "wasm"))]
-use warpui::SingletonEntity;
-// Re-export everything from the `remote_server` crate so existing
-// `crate::remote_server::*` imports in `app` continue to work.
-pub use remote_server::*;
+pub mod setup {
+    #[derive(Clone, Debug)]
+    pub enum RemoteServerSetupState {
+        Checking,
+        Installing { progress_percent: Option<u8> },
+        Initializing,
+        Ready,
+        Failed { error: String },
+    }
 
-#[cfg(not(target_family = "wasm"))]
-pub mod auth_context;
-#[cfg(not(target_family = "wasm"))]
-pub mod server_model;
-#[cfg(not(target_family = "wasm"))]
-pub mod ssh_transport;
-#[cfg(unix)]
-pub mod unix;
-
-/// Run the `remote-server-proxy` subcommand.
-#[cfg(unix)]
-pub fn run_proxy(identity_key: String) -> anyhow::Result<()> {
-    unix::run_proxy(identity_key)
-}
-
-#[cfg(not(unix))]
-pub fn run_proxy(_identity_key: String) -> anyhow::Result<()> {
-    anyhow::bail!("remote-server-proxy is not supported on this platform")
-}
-
-/// Run the `remote-server-daemon` subcommand.
-#[cfg(unix)]
-pub fn run_daemon(identity_key: String) -> anyhow::Result<()> {
-    unix::run_daemon(identity_key)
-}
-
-#[cfg(not(unix))]
-pub fn run_daemon(_identity_key: String) -> anyhow::Result<()> {
-    anyhow::bail!("remote-server-daemon is not supported on this platform")
-}
-
-/// Start the WarpUI headless app with all daemon singleton models.
-///
-/// This is the platform-agnostic core of every `run_daemon` implementation.
-/// Platform-specific code (Unix sockets, Windows named pipes, …) binds a
-/// listener and calls this function with the appropriate `ServerModel`
-/// constructor — everything else (DirectoryWatcher, DetectedRepositories,
-/// RepoMetadataModel, FileModel) is shared.
-///
-/// # Example
-/// ```ignore
-/// // In unix/mod.rs:
-/// super::run_daemon_app(move |ctx| ServerModel::new(unix_listener, ctx))
-/// ```
-#[cfg(not(target_family = "wasm"))]
-pub(super) fn run_daemon_app(
-    server_model_init: impl FnOnce(&mut warpui::ModelContext<server_model::ServerModel>) -> server_model::ServerModel
-        + 'static,
-) -> anyhow::Result<()> {
-    use warpui::platform::app::AppCallbacks;
-    use warpui::platform::AppBuilder;
-
-    AppBuilder::new_headless(AppCallbacks::default(), Box::new(()), None).run(|ctx| {
-        // Rotate log files from the previous daemon invocation in the background.
-        ctx.background_executor()
-            .spawn(warp_logging::rotate_log_files())
-            .detach();
-
-        use crate::server::telemetry::context_provider::NoopTelemetryContextProvider;
-        use repo_metadata::repositories::DetectedRepositories;
-        use repo_metadata::watcher::DirectoryWatcher;
-        use repo_metadata::RepoMetadataModel;
-
-        // Register a no-op telemetry context so that `send_telemetry_from_ctx!`
-        // calls (e.g. from RepoMetadataModel on ExceededMaxFileLimit) don't
-        // panic due to a missing TelemetryContextModel singleton.
-        ctx.add_singleton_model(NoopTelemetryContextProvider::new_context_provider);
-
-        // Order matters: DetectedRepositories must be registered before
-        // RepoMetadataModel because LocalRepoMetadataModel::new()
-        // subscribes to DetectedRepositories::handle(ctx).
-        ctx.add_singleton_model(DirectoryWatcher::new);
-        ctx.add_singleton_model(|_ctx| DetectedRepositories::default());
-        ctx.add_singleton_model(RepoMetadataModel::new_with_incremental_updates);
-        ctx.add_singleton_model(warp_files::FileModel::new);
-        ctx.add_singleton_model(server_model_init);
-    })?;
-    Ok(())
-}
-
-/// Forwards app auth-token rotation events to the remote-server manager.
-#[cfg(not(target_family = "wasm"))]
-pub fn wire_auth_token_rotation(ctx: &mut warpui::AppContext) {
-    let server_api = ServerApiProvider::handle(ctx);
-    let manager = RemoteServerManager::handle(ctx);
-    ctx.subscribe_to_model(&server_api, move |_, event, ctx| {
-        if let ServerApiEvent::AccessTokenRefreshed { token } = event {
-            manager.update(ctx, |manager, _| {
-                manager.rotate_auth_token(token.clone());
-            });
+    impl RemoteServerSetupState {
+        pub fn is_in_progress(&self) -> bool {
+            matches!(
+                self,
+                Self::Checking | Self::Installing { .. } | Self::Initializing
+            )
         }
-    });
+
+        pub fn is_connecting(&self) -> bool {
+            matches!(self, Self::Checking | Self::Initializing)
+        }
+    }
+}
+
+pub mod client {
+    #[derive(Clone, Debug)]
+    pub struct RemoteServerClient;
+}
+
+pub mod manager {
+    use serde::Serialize;
+    use std::collections::HashSet;
+    use std::sync::Arc;
+    use warp_core::{HostId, SessionId};
+    use warp_util::standardized_path::StandardizedPath;
+    use warpui::{Entity, ModelContext, SingletonEntity};
+
+    use super::client::RemoteServerClient;
+    use super::setup::RemoteServerSetupState;
+
+    #[derive(Clone, Copy, Debug, Serialize)]
+    #[serde(rename_all = "snake_case")]
+    pub enum RemoteServerInitPhase {
+        Connect,
+        Initialize,
+    }
+
+    #[derive(Clone, Copy, Debug, Serialize)]
+    #[serde(rename_all = "snake_case")]
+    pub enum RemoteServerOperation {
+        NavigateToDirectory,
+        LoadRepoMetadataDirectory,
+    }
+
+    #[derive(Clone, Copy, Debug, Serialize)]
+    #[serde(rename_all = "snake_case")]
+    pub enum RemoteServerErrorKind {
+        Timeout,
+        Disconnected,
+        ServerError,
+        Other,
+    }
+
+    #[derive(Clone, Debug, Serialize)]
+    pub struct RemoteServerExitStatus {
+        pub code: Option<i32>,
+        pub signal_killed: bool,
+    }
+
+    #[derive(Clone, Debug)]
+    pub enum RemoteOs {
+        Linux,
+        MacOs,
+    }
+
+    impl RemoteOs {
+        pub fn as_str(&self) -> &'static str {
+            match self {
+                Self::Linux => "linux",
+                Self::MacOs => "macos",
+            }
+        }
+    }
+
+    #[derive(Clone, Debug)]
+    pub enum RemoteArch {
+        X86_64,
+        Aarch64,
+    }
+
+    impl RemoteArch {
+        pub fn as_str(&self) -> &'static str {
+            match self {
+                Self::X86_64 => "x86_64",
+                Self::Aarch64 => "aarch64",
+            }
+        }
+    }
+
+    #[derive(Clone, Debug)]
+    pub struct RemotePlatform {
+        pub os: RemoteOs,
+        pub arch: RemoteArch,
+    }
+
+    #[derive(Clone, Debug)]
+    pub enum RemoteServerManagerEvent {
+        SessionConnecting {
+            session_id: SessionId,
+        },
+        SessionConnected {
+            session_id: SessionId,
+            host_id: HostId,
+        },
+        SessionConnectionFailed {
+            session_id: SessionId,
+            phase: RemoteServerInitPhase,
+            error: String,
+        },
+        SessionDisconnected {
+            session_id: SessionId,
+            host_id: HostId,
+            exit_status: Option<RemoteServerExitStatus>,
+        },
+        SessionReconnected {
+            session_id: SessionId,
+            host_id: HostId,
+            attempt: u32,
+            client: Arc<RemoteServerClient>,
+        },
+        SessionDeregistered {
+            session_id: SessionId,
+        },
+        HostConnected {
+            host_id: HostId,
+        },
+        HostDisconnected {
+            host_id: HostId,
+        },
+        NavigatedToDirectory {
+            session_id: SessionId,
+            host_id: HostId,
+            indexed_path: StandardizedPath,
+            is_git: bool,
+        },
+        SetupStateChanged {
+            session_id: SessionId,
+            state: RemoteServerSetupState,
+        },
+        BinaryCheckComplete {
+            session_id: SessionId,
+            result: Result<bool, String>,
+            remote_platform: Option<RemotePlatform>,
+        },
+        BinaryInstallComplete {
+            session_id: SessionId,
+            result: Result<(), String>,
+        },
+        ClientRequestFailed {
+            session_id: SessionId,
+            operation: RemoteServerOperation,
+            error_kind: RemoteServerErrorKind,
+        },
+        ServerMessageDecodingError {
+            session_id: SessionId,
+        },
+        RepoMetadataSnapshot {
+            host_id: HostId,
+            update: repo_metadata::RepoMetadataUpdate,
+        },
+        RepoMetadataUpdated {
+            host_id: HostId,
+            update: repo_metadata::RepoMetadataUpdate,
+        },
+        RepoMetadataDirectoryLoaded {
+            host_id: HostId,
+            update: repo_metadata::RepoMetadataUpdate,
+        },
+    }
+
+    pub struct RemoteServerManager;
+
+    impl Entity for RemoteServerManager {
+        type Event = RemoteServerManagerEvent;
+    }
+
+    impl SingletonEntity for RemoteServerManager {}
+
+    impl RemoteServerManager {
+        pub fn new(_ctx: &mut ModelContext<Self>) -> Self {
+            Self
+        }
+
+        pub fn session(&self, _session_id: SessionId) -> Option<()> {
+            None
+        }
+
+        pub fn sessions_for_host(&self, _host_id: &HostId) -> Option<&HashSet<SessionId>> {
+            None
+        }
+
+        pub fn client_for_host(&self, _host_id: &HostId) -> Option<&Arc<RemoteServerClient>> {
+            None
+        }
+
+        pub fn client_for_session(
+            &self,
+            _session_id: SessionId,
+        ) -> Option<&Arc<RemoteServerClient>> {
+            None
+        }
+
+        pub fn host_id_for_session(&self, _session_id: SessionId) -> Option<&HostId> {
+            None
+        }
+
+        pub fn platform_for_session(&self, _session_id: SessionId) -> Option<&RemotePlatform> {
+            None
+        }
+
+        pub fn rotate_auth_token(&mut self, _token: String) {}
+
+        pub fn deregister_session(
+            &mut self,
+            _session_id: SessionId,
+            _ctx: &mut ModelContext<Self>,
+        ) {
+        }
+
+        pub fn navigate_to_directory(
+            &mut self,
+            _session_id: SessionId,
+            _path: String,
+            _ctx: &mut ModelContext<Self>,
+        ) {
+        }
+
+        pub fn notify_session_bootstrapped(
+            &mut self,
+            _session_id: SessionId,
+            _shell_type_name: &str,
+            _shell_path: Option<&str>,
+        ) {
+        }
+
+        pub fn load_remote_repo_metadata_directory(
+            &mut self,
+            _session_id: SessionId,
+            _repo_root: String,
+            _dir_path: String,
+            _ctx: &mut ModelContext<Self>,
+        ) {
+        }
+    }
+}
+
+pub fn run_proxy(_identity_key: String) -> anyhow::Result<()> {
+    anyhow::bail!("remote server proxy was removed in Warp Lite")
+}
+
+pub fn run_daemon(_identity_key: String) -> anyhow::Result<()> {
+    anyhow::bail!("remote server daemon was removed in Warp Lite")
 }

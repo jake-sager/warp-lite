@@ -66,7 +66,7 @@ use crate::{
     code::{editor::EditorReviewComment, global_buffer_model::GlobalBufferModelEvent},
     code_review::comments::CommentId,
 };
-use ai::diff_validation::DiffType;
+use crate::ai::diff_validation::DiffType;
 use pathfinder_color::ColorU;
 #[cfg(feature = "local_fs")]
 use repo_metadata::repositories::DetectedRepositories;

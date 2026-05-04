@@ -163,8 +163,8 @@ impl WorkflowsMoreInfoView {
         let environment_variables_dropdown = (!workflow.as_workflow().is_agent_mode_workflow())
             .then(|| {
                 let dropdown = ctx.add_typed_action_view(|ctx| {
-                    let mut dropdown = EnvVarSelector::new(ctx);
-                    dropdown.set_orientation(FilterableDropdownOrientation::Up, ctx);
+                    let mut dropdown = EnvVarSelector::new(&mut *ctx);
+                    dropdown.set_orientation(FilterableDropdownOrientation::Up, &mut *ctx);
                     dropdown.set_width(ENV_VAR_DROPDOWN_WIDTH, ctx);
                     dropdown
                 });
@@ -222,8 +222,9 @@ impl WorkflowsMoreInfoView {
         ctx: &mut ViewContext<Self>,
     ) {
         match event {
-            EnvVarSelectorEvent::SelectionChanged(id) => {
-                ctx.emit(WorkflowsInfoBoxViewEvent::PrefixCommandWithEnvironmentVariables(*id));
+            EnvVarSelectorEvent::Changed => ctx.notify(),
+            EnvVarSelectorEvent::SelectionChanged(_id) => {
+                ctx.emit(WorkflowsInfoBoxViewEvent::PrefixCommandWithEnvironmentVariables(None));
             }
             EnvVarSelectorEvent::Refreshed => ctx.notify(),
         }

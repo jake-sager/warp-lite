@@ -2,6 +2,7 @@ use crate::ai::aws_credentials::AwsCredentialRefresher as _;
 use crate::ai::llms::{LLMPreferences, LLMPreferencesEvent};
 use crate::auth::auth_state::AuthState;
 use crate::auth::AuthStateProvider;
+use crate::terminal::model::block::SerializedBlockListItem;
 use crate::terminal::model::terminal_model::ExitReason;
 use crate::terminal::shared_session::replay_agent_conversations::reconstruct_response_events_from_conversations;
 use crate::terminal::shared_session::shared_handlers::{
@@ -60,7 +61,7 @@ use crate::ai::agent::conversation::AIConversation;
 use crate::ai::blocklist::agent_view::{AgentViewController, AgentViewControllerEvent};
 use crate::ai::blocklist::{
     BlocklistAIContextEvent, BlocklistAIContextModel, BlocklistAIControllerEvent,
-    BlocklistAIHistoryEvent, BlocklistAIHistoryModel, InputConfig, SerializedBlockListItem,
+    BlocklistAIHistoryEvent, BlocklistAIHistoryModel, InputConfig,
 };
 use crate::terminal::view::ConversationRestorationInNewPaneType;
 
@@ -96,8 +97,7 @@ use crate::terminal::shared_session::{
 use crate::terminal::view::Event as TerminalViewEvent;
 use crate::terminal::writeable_pty::pty_controller::{EventLoopSendError, EventLoopSender};
 use crate::terminal::writeable_pty::terminal_manager_util::{
-    init_pty_controller_model, init_remote_server_controller, wire_up_pty_controller_with_view,
-    wire_up_remote_server_controller_with_view,
+    init_pty_controller_model, wire_up_pty_controller_with_view,
 };
 use crate::terminal::writeable_pty::{self, Message};
 use crate::terminal::{
@@ -122,8 +122,6 @@ use {
 };
 
 type PtyController = writeable_pty::PtyController<mio_channel::Sender<Message>>;
-type RemoteServerController =
-    writeable_pty::remote_server_controller::RemoteServerController<mio_channel::Sender<Message>>;
 
 const ACL_UPDATE_FAILURE_RESPONSE: &str = "Something went wrong. Please try again.";
 
@@ -153,10 +151,6 @@ pub struct TerminalManager {
     /// of the PTY controller.
     #[allow(dead_code)]
     pty_controller: ModelHandle<PtyController>,
-
-    /// The manager is responsible for managing the lifetime of the remote server controller.
-    #[expect(dead_code)]
-    remote_server_controller: ModelHandle<RemoteServerController>,
 
     /// The process ID of the PTY. Purely used for integration tests. None if the PTY has not yet
     /// been started.
@@ -250,7 +244,7 @@ impl TerminalManager {
             ctx.add_model(|ctx| ModelEventDispatcher::new(events_rx, sessions.clone(), ctx));
 
         // Have ApiKeyManager subscribe to block completion events for AWS credential refresh
-        ai::api_keys::ApiKeyManager::handle(ctx).update(ctx, |manager, ctx| {
+        crate::ai::api_keys::ApiKeyManager::handle(ctx).update(ctx, |manager, ctx| {
             manager.register_model_event_dispatcher(&model_events, ctx);
         });
 
@@ -321,10 +315,6 @@ impl TerminalManager {
             model.clone(),
             ctx,
         );
-
-        // Initialize the RemoteServerController.
-        let remote_server_controller =
-            init_remote_server_controller(&pty_controller, &model_events, ctx);
 
         let current_prompt = ctx.add_model(|ctx| {
             CurrentPrompt::new_with_model_events(sessions.clone(), Some(&model_events), ctx)
@@ -432,8 +422,6 @@ impl TerminalManager {
             model_event_sender,
             ctx,
         );
-
-        wire_up_remote_server_controller_with_view(&remote_server_controller, &view, ctx);
 
         let session_sharer_clone = session_sharer.clone();
         ctx.subscribe_to_model(&SessionSettings::handle(ctx), move |_, event, ctx| {
@@ -739,7 +727,6 @@ impl TerminalManager {
             #[cfg(unix)]
             terminal_attributes_poller: None,
             pty_controller,
-            remote_server_controller,
 
             #[cfg(feature = "integration_tests")]
             pid: None,
@@ -817,7 +804,7 @@ impl TerminalManager {
             Some(ShellStarterSource::Fallback { .. })
         );
         let shell_starter = shell_starter_source
-            .map(|source| get_shell_starter_internal(source, bg_executor, auth_state));
+            .map(|source| get_shell_starter_internal(source, bg_executor, &auth_state));
         let shell_starter = match shell_starter {
             Some(shell_starter) => shell_starter,
             None => {

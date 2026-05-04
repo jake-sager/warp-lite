@@ -2,7 +2,6 @@
 
 cfg_if::cfg_if! {
     if #[cfg(feature = "local_fs")] {
-        pub mod agent;
         mod block_list;
         mod cloud_objects;
         mod sqlite;
@@ -25,13 +24,12 @@ use std::sync::Arc;
 use std::thread::JoinHandle;
 
 use crate::ai::persisted_workspace::EnablementState;
-use ai::project_context::model::ProjectRulePath;
+use crate::ai::project_context::model::ProjectRulePath;
 use chrono::{DateTime, Local, Utc};
 use lsp::supported_servers::LSPServerType;
 use uuid::Uuid;
 use warp_core::command::ExitCode;
 use warp_graphql::scalars::time::ServerTimestamp;
-use warp_multi_agent_api as api;
 use warpui::{AppContext, Entity, SingletonEntity};
 
 use crate::ai::blocklist::PersistedAIInput;
@@ -41,6 +39,7 @@ use crate::auth::auth_manager::PersistedCurrentUserInformation;
 use crate::cloud_object::model::actions::ObjectAction;
 use crate::cloud_object::model::generic_string_model::CloudStringObject;
 
+use crate::ai::workspace::WorkspaceMetadata as CodeWorkspaceMetadata;
 use crate::cloud_object::{
     CloudObject, CloudObjectMetadata, ObjectIdType, RevisionAndLastEditor, ServerCreationInfo,
 };
@@ -55,7 +54,6 @@ use crate::terminal::model::session::SessionId;
 use crate::workflows::CloudWorkflow;
 use crate::workspaces::user_profiles::UserProfileWithUID;
 use crate::workspaces::workspace::{Workspace as WorkspaceMetadata, WorkspaceUid};
-use ai::workspace::WorkspaceMetadata as CodeWorkspaceMetadata;
 
 use self::model::{AgentConversation, AgentConversationData, Project};
 
@@ -314,11 +312,6 @@ pub enum ModelEvent {
     /// Delete the AI query and related data for a given conversation.
     DeleteAIConversation {
         conversation_id: String,
-    },
-    UpdateMultiAgentConversation {
-        conversation_id: String,
-        updated_tasks: Vec<api::Task>,
-        conversation_data: AgentConversationData,
     },
     DeleteMultiAgentConversations {
         conversation_ids: Vec<String>,

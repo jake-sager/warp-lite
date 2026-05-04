@@ -1,6 +1,6 @@
 #[cfg(test)]
 use super::*;
-use ai::index::Symbol;
+use crate::ai::index::Symbol;
 use std::collections::HashSet;
 use std::path::PathBuf;
 

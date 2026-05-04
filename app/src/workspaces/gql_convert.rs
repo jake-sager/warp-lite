@@ -246,25 +246,8 @@ impl From<GqlUgcCollectionEnablementSetting> for UgcCollectionEnablementSetting 
 }
 
 impl From<&gql_usage::ConversationUsage> for ConversationUsageInfo {
-    fn from(gql: &gql_usage::ConversationUsage) -> Self {
-        let persistence::model::ConversationUsageMetadata {
-            credits_spent,
-            token_usage: models,
-            tool_usage_metadata: tool,
-            context_window_usage,
-            ..
-        } = (&gql.usage_metadata).into();
-        ConversationUsageInfo {
-            credits_spent,
-            credits_spent_for_last_block: None,
-            tool_calls: tool.total_tool_calls(),
-            models,
-            context_window_usage,
-            files_changed: tool.apply_file_diff_stats.files_changed,
-            lines_added: tool.apply_file_diff_stats.lines_added,
-            lines_removed: tool.apply_file_diff_stats.lines_removed,
-            commands_executed: tool.run_command_stats.commands_executed,
-        }
+    fn from(_gql: &gql_usage::ConversationUsage) -> Self {
+        ConversationUsageInfo::default()
     }
 }
 
@@ -503,18 +486,8 @@ impl From<GqlDelinquencyStatus> for DelinquencyStatus {
 }
 
 impl BonusGrant {
-    pub fn from_gql_bonus_grant(bonus_grant: GqlBonusGrant, scope: BonusGrantScope) -> Self {
-        Self {
-            created_at: bonus_grant.created_at.utc(),
-            cost_cents: bonus_grant.cost_cents,
-            expiration: bonus_grant.expiration.map(|exp| exp.utc()),
-            grant_type: bonus_grant.grant_type,
-            reason: bonus_grant.reason,
-            user_facing_message: bonus_grant.user_facing_message,
-            request_credits_granted: bonus_grant.request_credits_granted,
-            request_credits_remaining: bonus_grant.request_credits_remaining,
-            scope,
-        }
+    pub fn from_gql_bonus_grant(_bonus_grant: GqlBonusGrant, _scope: BonusGrantScope) -> Self {
+        Self::default()
     }
 }
 
@@ -999,32 +972,18 @@ impl TryFrom<WarpDriveUpdate> for ObjectUpdateMessage {
                 })
             }
             WarpDriveUpdate::ObjectContentUpdated(message) => {
-                let server_object = message.object.try_into()?;
-                let last_editor = message.last_editor.map(|e| e.into());
-                Ok(ObjectUpdateMessage::ObjectContentChanged {
-                    server_object: Box::new(server_object),
-                    last_editor,
-                })
+                Ok(ObjectUpdateMessage::TeamMembershipsChanged)
             }
             WarpDriveUpdate::ObjectDeleted(message) => Ok(ObjectUpdateMessage::ObjectDeleted {
                 object_uid: ServerId::from_string_lossy(message.object_uid.inner()),
             }),
             WarpDriveUpdate::ObjectMetadataUpdated(message) => {
-                Ok(ObjectUpdateMessage::ObjectMetadataChanged {
-                    metadata: message.metadata.try_into()?,
+                Ok(ObjectUpdateMessage::ObjectDeleted {
+                    object_uid: ServerId::from_string_lossy(message.metadata.uid.inner()),
                 })
             }
             WarpDriveUpdate::ObjectPermissionsUpdated(message) => {
-                Ok(ObjectUpdateMessage::ObjectPermissionsChangedV2 {
-                    object_uid: ServerId::from_string_lossy(message.object_uid.inner()),
-                    user_profiles: message
-                        .user_profiles
-                        .into_iter()
-                        .flatten()
-                        .map(Into::into)
-                        .collect(),
-                    permissions: message.permissions.try_into()?,
-                })
+                Ok(ObjectUpdateMessage::TeamMembershipsChanged)
             }
             WarpDriveUpdate::TeamMembershipsChanged(_) => {
                 Ok(ObjectUpdateMessage::TeamMembershipsChanged)
@@ -1118,12 +1077,7 @@ impl TryFrom<warp_graphql::generic_string_object::GenericStringObject> for Serve
     fn try_from(
         gso: warp_graphql::generic_string_object::GenericStringObject,
     ) -> Result<Self, Self::Error> {
-        ServerAIFact::try_from_graphql_fields(
-            ServerId::from_string_lossy(gso.metadata.uid.inner()),
-            Some(gso.serialized_model),
-            gso.metadata.try_into()?,
-            gso.permissions.try_into()?,
-        )
+        Err(anyhow::anyhow!("AI facts are removed in Warp Lite"))
     }
 }
 
@@ -1135,12 +1089,9 @@ impl TryFrom<warp_graphql::generic_string_object::GenericStringObject>
     fn try_from(
         gso: warp_graphql::generic_string_object::GenericStringObject,
     ) -> Result<Self, Self::Error> {
-        ServerAIExecutionProfile::try_from_graphql_fields(
-            ServerId::from_string_lossy(gso.metadata.uid.inner()),
-            Some(gso.serialized_model),
-            gso.metadata.try_into()?,
-            gso.permissions.try_into()?,
-        )
+        Err(anyhow::anyhow!(
+            "AI execution profiles are removed in Warp Lite"
+        ))
     }
 }
 impl TryFrom<warp_graphql::generic_string_object::GenericStringObject> for ServerMCPServer {
@@ -1149,12 +1100,7 @@ impl TryFrom<warp_graphql::generic_string_object::GenericStringObject> for Serve
     fn try_from(
         gso: warp_graphql::generic_string_object::GenericStringObject,
     ) -> Result<Self, Self::Error> {
-        ServerMCPServer::try_from_graphql_fields(
-            ServerId::from_string_lossy(gso.metadata.uid.inner()),
-            Some(gso.serialized_model),
-            gso.metadata.try_into()?,
-            gso.permissions.try_into()?,
-        )
+        Err(anyhow::anyhow!("MCP servers are removed in Warp Lite"))
     }
 }
 
@@ -1165,12 +1111,7 @@ impl TryFrom<warp_graphql::generic_string_object::GenericStringObject>
     fn try_from(
         gso: warp_graphql::generic_string_object::GenericStringObject,
     ) -> Result<Self, Self::Error> {
-        ServerTemplatableMCPServer::try_from_graphql_fields(
-            ServerId::from_string_lossy(gso.metadata.uid.inner()),
-            Some(gso.serialized_model),
-            gso.metadata.try_into()?,
-            gso.permissions.try_into()?,
-        )
+        Err(anyhow::anyhow!("MCP servers are removed in Warp Lite"))
     }
 }
 
@@ -1197,12 +1138,9 @@ impl TryFrom<warp_graphql::generic_string_object::GenericStringObject>
     fn try_from(
         gso: warp_graphql::generic_string_object::GenericStringObject,
     ) -> Result<Self, Self::Error> {
-        ServerAmbientAgentEnvironment::try_from_graphql_fields(
-            ServerId::from_string_lossy(gso.metadata.uid.inner()),
-            Some(gso.serialized_model),
-            gso.metadata.try_into()?,
-            gso.permissions.try_into()?,
-        )
+        Err(anyhow::anyhow!(
+            "cloud environments are removed in Warp Lite"
+        ))
     }
 }
 
@@ -1214,12 +1152,7 @@ impl TryFrom<warp_graphql::generic_string_object::GenericStringObject>
     fn try_from(
         gso: warp_graphql::generic_string_object::GenericStringObject,
     ) -> Result<Self, Self::Error> {
-        ServerScheduledAmbientAgent::try_from_graphql_fields(
-            ServerId::from_string_lossy(gso.metadata.uid.inner()),
-            Some(gso.serialized_model),
-            gso.metadata.try_into()?,
-            gso.permissions.try_into()?,
-        )
+        Err(anyhow::anyhow!("scheduled agents are removed in Warp Lite"))
     }
 }
 
@@ -1229,12 +1162,9 @@ impl TryFrom<warp_graphql::generic_string_object::GenericStringObject> for Serve
     fn try_from(
         gso: warp_graphql::generic_string_object::GenericStringObject,
     ) -> Result<Self, Self::Error> {
-        ServerCloudAgentConfig::try_from_graphql_fields(
-            ServerId::from_string_lossy(gso.metadata.uid.inner()),
-            Some(gso.serialized_model),
-            gso.metadata.try_into()?,
-            gso.permissions.try_into()?,
-        )
+        Err(anyhow::anyhow!(
+            "cloud agent config is removed in Warp Lite"
+        ))
     }
 }
 
